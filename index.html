@@ -78,7 +78,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- table ---------- */
 .board{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:calc(100vh - 230px)}
-table{width:100%;border-collapse:collapse;min-width:980px}
+table{width:100%;border-collapse:collapse;min-width:1180px}
 thead th{position:sticky;top:0;z-index:1;background:#F7F8FA;text-align:left;font-weight:600;
   font-size:12.5px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -98,6 +98,14 @@ tr.saving{opacity:.45;pointer-events:none}
 .qs{width:100%;min-width:132px;height:32px;border:1px solid var(--line);border-radius:5px;background:#fff;padding:0 6px;cursor:pointer}
 .qs:disabled{background:#F4F5F7;color:#9AA1AB;cursor:not-allowed}
 .qs.has{border-color:var(--c);font-weight:600}
+.c-ket{min-width:220px;max-width:300px}
+.ket{white-space:pre-wrap;word-break:break-word;cursor:text;padding:5px 7px;margin:-5px -7px;border-radius:5px;
+  border:1px dashed transparent;min-height:30px}
+.ket:hover,.ket:focus-visible{border-color:#B9C2CE;background:#FAFBFC}
+.ket.empty{color:#9AA1AB}
+.ket-in{width:100%;min-height:64px;border:1px solid var(--navy-2);border-radius:5px;padding:6px 8px;resize:vertical;
+  font:inherit;line-height:1.4;background:#fff}
+.ket-tip{font-size:11.5px;color:var(--muted);margin-top:3px}
 .c-act{width:84px;white-space:nowrap;text-align:right}
 .ib{width:32px;height:32px;border:1px solid transparent;border-radius:5px;background:transparent;cursor:pointer;
   display:inline-grid;place-items:center;color:var(--muted)}
@@ -142,7 +150,10 @@ tr.saving{opacity:.45;pointer-events:none}
 .gate form{width:100%;max-width:320px;color:#fff}
 .gate h2{margin:0 0 4px;font-size:22px}
 .gate p{margin:0 0 20px;color:#C9D5E6;font-size:14px}
-.gate input{width:100%;height:52px;border:0;border-radius:6px;padding:0 14px;font-size:24px;letter-spacing:.3em;text-align:center;color:var(--ink)}
+.gate label{display:block;font-size:13px;color:#C9D5E6;margin:12px 0 5px}
+.gate input{width:100%;height:48px;border:0;border-radius:6px;padding:0 14px;font-size:17px;color:var(--ink)}
+.gate #gPin{font-size:22px;letter-spacing:.3em}
+.fmeta{grid-column:1/-1;font-size:12px;color:var(--muted);margin:0}
 .gate .btn{width:100%;justify-content:center;margin-top:12px;height:46px}
 .gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
 
@@ -169,7 +180,8 @@ tr.saving{opacity:.45;pointer-events:none}
   tbody td{padding:0;border:0}
   tbody td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted)}
   .c-no{display:none}
-  .c-lead{grid-column:1/-1}
+  .c-lead,.c-ket{grid-column:1/-1}
+  .c-ket{max-width:none}
   .c-act{grid-column:1/-1;text-align:left;border-top:1px solid var(--line)!important;padding-top:8px!important}
   .mb,.grp{grid-template-columns:1fr}
 }
@@ -230,6 +242,7 @@ tr.saving{opacity:.45;pointer-events:none}
       <div class="f"><label for="f_tglKirim">Tgl kirim ke SPV</label><input id="f_tglKirim" type="date"></div>
       <div class="f full"><label for="f_ket">Keterangan</label><textarea id="f_ket" placeholder="DP, tenor, catatan follow-up"></textarea></div>
 
+      <p class="fmeta" id="fMeta"></p>
       <div class="grp">
         <p class="grp-t">Status</p>
         <div class="f"><label for="f_spk">Status SPK</label><select id="f_spk"></select></div>
@@ -264,8 +277,11 @@ tr.saving{opacity:.45;pointer-events:none}
 <div class="gate" id="gate">
   <form id="gForm" novalidate>
     <h2>Leads SHN & PAS</h2>
-    <p>Masukkan PIN untuk membuka data leads.</p>
-    <input id="gPin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="PIN">
+    <p>Masuk dengan nama dan PIN Anda.</p>
+    <label for="gNama">Nama</label>
+    <input id="gNama" autocomplete="username" autocapitalize="words" spellcheck="false">
+    <label for="gPin">PIN</label>
+    <input id="gPin" type="password" inputmode="numeric" autocomplete="current-password">
     <button class="btn btn-primary" id="gBtn" type="submit">Masuk</button>
     <div class="gerr" id="gErr" role="alert"></div>
   </form>
@@ -278,6 +294,7 @@ tr.saving{opacity:.45;pointer-events:none}
 <script>
 // ===================== STATE =====================
 let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[] }, TODAY = '', PT = [];
+let ME = { canAdd:false, canEdit:false };
 let FILTER = 'all', Q = '', EDIT_ID = null, DEL_ID = null;
 let CMP = 'all', BRAND = 'all';   // CMP: 'all' | kode perusahaan | 'none' (brand kosong)
 const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
@@ -361,16 +378,18 @@ async function api(action, payload = {}) {
 function showGate(msg) {
   $('#gErr').textContent = msg || '';
   $('#gPin').value = '';
+  try { $('#gNama').value = localStorage.getItem('leads_nama') || ''; } catch (e) {}
   $('#gate').classList.add('open');
-  setTimeout(() => $('#gPin').focus(), 50);
+  setTimeout(() => ($('#gNama').value ? $('#gPin') : $('#gNama')).focus(), 50);
 }
 $('#gForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const pin = $('#gPin').value.trim();
-  if (!pin) return;
+  const nama = $('#gNama').value.trim(), pin = $('#gPin').value.trim();
+  if (!nama || !pin) { $('#gErr').textContent = 'Isi nama dan PIN.'; return; }
   const b = $('#gBtn'); b.disabled = true; $('#gErr').textContent = '';
   try {
-    setToken((await call('login', { pin })).token);
+    setToken((await call('login', { nama, pin })).token);
+    try { localStorage.setItem('leads_nama', nama); } catch (e) {}
     $('#gate').classList.remove('open');
     await refresh();
   } catch (ex) {
@@ -379,7 +398,11 @@ $('#gForm').addEventListener('submit', async e => {
 });
 function load(json) {
   const d = JSON.parse(json);
-  ROWS = d.rows; OPTS = d.opts; TODAY = d.today; PT = d.perusahaan;
+  ROWS = d.rows; OPTS = d.opts; TODAY = d.today; PT = d.perusahaan; ME = d.me;
+  if (PT.length === 1 && CMP === 'all') CMP = PT[0].kode;
+  $('#btnAdd').hidden = !ME.canAdd;
+  $('#btnOut').textContent = `Keluar (${ME.nama})`;
+  $('#btnOut').title = `Masuk sebagai ${ME.nama}, role ${ME.role}`;
   render();
 }
 async function refresh(msg) {
@@ -388,11 +411,11 @@ async function refresh(msg) {
 }
 
 // ===================== RENDER =====================
-function sel(field, val, list, emptyLabel, disabled) {
+function sel(field, val, list, emptyLabel, disabled, why) {
   const v = String(val ?? '').trim();
   const items = list.slice();
   if (v && !items.some(x => up(x) === up(v))) items.push(v);   // nilai lama di luar dropdown tetap tampil
-  return `<select class="qs ${v ? 'has' : ''}" data-field="${field}" ${disabled ? 'disabled title="Isi Status SPK = SPK dulu"' : ''}>
+  return `<select class="qs ${v ? 'has' : ''}" data-field="${field}" ${disabled ? `disabled title="${why || ''}"` : ''}>
     <option value="">${emptyLabel}</option>
     ${items.map(x => `<option ${up(x) === up(v) ? 'selected' : ''}>${esc(x)}</option>`).join('')}
   </select>`;
@@ -406,30 +429,34 @@ function rowHtml(r) {
     <td class="c-no">${esc(r.no)}</td>
     <td class="c-lead"><div class="nm">${esc(r.nama)}</div>
       ${r.kontak ? `<a class="tel" href="tel:${esc(digits(r.kontak))}">${esc(r.kontak)}</a>` : '<span class="sub">Tanpa kontak</span>'}</td>
+    <td class="c-ket" data-l="Keterangan">${ME.canEdit
+      ? `<div class="ket ${r.ket ? '' : 'empty'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
+      : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`}</td>
     <td data-l="SPV / Kota"><div>${esc(r.spv) || '-'}</div><div class="sub">${esc(r.kota) || '-'}</div></td>
     <td data-l="Unit">${r.brand ? `<span class="bd">${esc(r.brand)}</span>` : '<span class="bd none">Brand kosong</span>'}
-      <div>${esc(r.unit) || '-'}</div>${r.ket ? `<div class="sub">${esc(r.ket)}</div>` : ''}</td>
+      <div>${esc(r.unit) || '-'}</div></td>
     <td data-l="Source">${esc(r.source) || '-'}</td>
     <td data-l="Kirim ke SPV">${r.tglKirim
         ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
         : '<span class="sub">Belum diisi</span>'}</td>
-    <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada')}
+    <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada', !ME.canEdit, 'Akun Anda hanya bisa melihat')}
       ${r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : ''}</td>
-    <td data-l="Status DO">${sel('do', r.do, OPTS.do, 'Belum', doLocked)}
+    <td data-l="Status DO">${sel('do', r.do, OPTS.do, 'Belum', doLocked || !ME.canEdit,
+        !ME.canEdit ? 'Akun Anda hanya bisa melihat' : 'Isi Status SPK = SPK dulu')}
       ${r.tglDo ? `<div class="sub">${fmt(r.tglDo)}</div>` : ''}</td>
-    <td class="c-act">
+    <td class="c-act">${ME.canEdit ? `
       <button class="ib" data-act="edit" aria-label="Edit ${esc(r.nama)}" title="Edit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>` : ''}${r.canDel ? `
       <button class="ib del" data-act="del" aria-label="Hapus ${esc(r.nama)}" title="Hapus">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}
     </td>
   </tr>`;
 }
 
 function renderCompany() {
   const nNone = ROWS.filter(r => cmpOf(r.brand) === 'none').length;
-  if (CMP === 'none' && !nNone) CMP = 'all';
-  const tabs = [{ k:'all', nm:'Semua perusahaan', n:ROWS.length }]
+  if (CMP === 'none' && !nNone) CMP = PT.length === 1 ? PT[0].kode : 'all';
+  const tabs = (PT.length > 1 ? [{ k:'all', nm:'Semua perusahaan', n:ROWS.length }] : [])
     .concat(PT.map(p => ({ k:p.kode, nm:p.nama, n:ROWS.filter(r => cmpOf(r.brand) === p.kode).length })));
   if (nNone) tabs.push({ k:'none', nm:'Brand belum diisi', n:nNone });
   $('#cmp').innerHTML = tabs.map(t =>
@@ -490,7 +517,7 @@ function render() {
     return;
   }
   $('#board').innerHTML = `<table>
-    <thead><tr><th>No</th><th>Lead</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
+    <thead><tr><th>No</th><th>Lead</th><th>Keterangan</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
       <th>Kirim ke SPV</th><th>Status SPK</th><th>Status DO</th><th></th></tr></thead>
     <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
 }
@@ -578,6 +605,14 @@ function openForm(id) {
   fillSelect(F('spk'), OPTS.spk, 'Belum ada keputusan', r.spk || '');
   fillSelect(F('do'), OPTS.do, 'Belum', r.do || '');
   FIELDS.filter(k => !['brand','source','spk','do'].includes(k)).forEach(k => F(k).value = r[k] || '');
+  // SPV hanya bisa input atas namanya sendiri
+  const isSpv = up(ME.role) === 'SPV';
+  if (isSpv) F('spv').value = ME.spv;
+  F('spv').disabled = isSpv;
+  $('#fMeta').textContent = id
+    ? [r.inputBy && `Diinput oleh ${r.inputBy}`, r.editBy && `terakhir diubah ${r.editBy}${r.editAt ? ' (' + r.editAt + ')' : ''}`]
+        .filter(Boolean).join(', ')
+    : '';
   syncStatus();
   checkKontak();
   openOv('#ovForm');
@@ -663,13 +698,44 @@ $('#board').addEventListener('change', e => {
 $('#board').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const id = b.closest('tr').dataset.id;
+  if (b.dataset.act === 'ket') return editKet(b);
   b.dataset.act === 'edit' ? openForm(id) : openDel(id);
 });
+$('#board').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.ket')) { e.preventDefault(); editKet(e.target); }
+});
+
+// ===================== EDIT KETERANGAN LANGSUNG DI TABEL =====================
+// Klik → ketik → Enter / klik di luar = simpan, Shift+Enter = baris baru, Esc = batal
+function editKet(div) {
+  const tr = div.closest('tr');
+  const r = ROWS.find(x => x.id === tr.dataset.id);
+  if (!r) return;
+  const td = div.parentElement;
+  td.innerHTML = `<textarea class="ket-in" aria-label="Keterangan ${esc(r.nama)}"></textarea>
+    <div class="ket-tip">Enter simpan, Esc batal</div>`;
+  const ta = td.querySelector('textarea');
+  ta.value = r.ket || '';
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+
+  let selesai = false;
+  const simpan = async () => {
+    if (selesai) return; selesai = true;
+    const val = ta.value.trim();
+    if (val === String(r.ket || '').trim()) return render();
+    await persist({ ...r, ket: val }, `Keterangan ${r.nama} disimpan`, tr);
+  };
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { e.stopPropagation(); selesai = true; render(); }
+  });
+  ta.addEventListener('blur', simpan);
+}
 let qt;
 $('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { Q = e.target.value.trim(); render(); }, 150); });
 $('#btnAdd').addEventListener('click', () => openForm());
 $('#btnOut').addEventListener('click', () => {
-  setToken(''); ROWS = []; render(); showGate('Anda sudah keluar dari HP ini.');
+  setToken(''); ROWS = []; CMP = 'all'; BRAND = 'all'; render(); showGate('Anda sudah keluar dari HP ini.');
 });
 $('#btnReload').addEventListener('click', () => refresh('Data diperbarui dari sheet'));
 
