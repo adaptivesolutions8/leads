@@ -429,9 +429,6 @@ function rowHtml(r) {
     <td class="c-no">${esc(r.no)}</td>
     <td class="c-lead"><div class="nm">${esc(r.nama)}</div>
       ${r.kontak ? `<a class="tel" href="tel:${esc(digits(r.kontak))}">${esc(r.kontak)}</a>` : '<span class="sub">Tanpa kontak</span>'}</td>
-    <td class="c-ket" data-l="Keterangan">${ME.canEdit
-      ? `<div class="ket ${r.ket ? '' : 'empty'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
-      : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`}</td>
     <td data-l="SPV / Kota"><div>${esc(r.spv) || '-'}</div><div class="sub">${esc(r.kota) || '-'}</div></td>
     <td data-l="Unit">${r.brand ? `<span class="bd">${esc(r.brand)}</span>` : '<span class="bd none">Brand kosong</span>'}
       <div>${esc(r.unit) || '-'}</div></td>
@@ -439,6 +436,9 @@ function rowHtml(r) {
     <td data-l="Kirim ke SPV">${r.tglKirim
         ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
         : '<span class="sub">Belum diisi</span>'}</td>
+    <td class="c-ket" data-l="Keterangan">${ME.canEdit
+      ? `<div class="ket ${r.ket ? '' : 'empty'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
+      : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`}</td>
     <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada', !ME.canEdit, 'Akun Anda hanya bisa melihat')}
       ${r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : ''}</td>
     <td data-l="Status DO">${sel('do', r.do, OPTS.do, 'Belum', doLocked || !ME.canEdit,
@@ -517,8 +517,8 @@ function render() {
     return;
   }
   $('#board').innerHTML = `<table>
-    <thead><tr><th>No</th><th>Lead</th><th>Keterangan</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
-      <th>Kirim ke SPV</th><th>Status SPK</th><th>Status DO</th><th></th></tr></thead>
+    <thead><tr><th>No</th><th>Lead</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
+      <th>Kirim ke SPV</th><th>Keterangan</th><th>Status SPK</th><th>Status DO</th><th></th></tr></thead>
     <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
 }
 
