@@ -61,6 +61,20 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bd{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:4px;background:#EEF1F5;color:var(--muted);margin-bottom:3px}
 .bd.none{background:#FBECEA;color:var(--warn)}
 
+/* ---------- baris filter ---------- */
+.fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:14px}
+.fbar select,.fbar input[type=date]{height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;
+  padding:0 8px;font-size:13px;max-width:190px}
+.fbar select.on,.fbar input.on{border-color:var(--navy-2);background:#EEF3FB;font-weight:600}
+.fbar .tg{height:34px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:0 12px;cursor:pointer;font-size:13px}
+.fbar .tg.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.fbar .tg.warn.on{background:var(--warn);border-color:var(--warn)}
+.fbar .rst{height:34px;border:0;background:transparent;color:var(--navy-2);cursor:pointer;font-size:13px;font-weight:600;padding:0 6px}
+.fbar .rst:hover{text-decoration:underline}
+.fbar .rng{display:flex;gap:4px;align-items:center;font-size:12.5px;color:var(--muted)}
+.sumlink{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.sumlink:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
 /* ---------- pipeline (filter) ---------- */
 .wrap{max-width:1280px;margin:0 auto;padding:0 20px 40px}
 .pipe{display:flex;gap:4px;margin:-1px 0 18px;padding-top:14px;flex-wrap:wrap}
@@ -197,6 +211,8 @@ thead th.c-lead{left:0;z-index:3}
   td.c-lead,th.c-lead{min-width:132px;max-width:150px}
   .c-ket{min-width:190px}
   .mb,.grp{grid-template-columns:1fr}
+  .fbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .fbar > *{flex:0 0 auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -228,6 +244,7 @@ thead th.c-lead{left:0;z-index:3}
 
 <main class="wrap">
   <div class="brands" id="brands" hidden></div>
+  <div class="fbar" id="fbar" role="group" aria-label="Filter"></div>
   <nav class="pipe" id="pipe" aria-label="Filter status"></nav>
   <div class="board" id="board"><div class="loading">Memuat data dari sheet…</div></div>
 </main>
@@ -326,6 +343,13 @@ let FILTER = 'all', Q = '', EDIT_ID = null, DEL_ID = null;
 let CMP = 'all', BRAND = 'all';   // CMP: 'all' | 'SHN' | 'PAS'
 const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
 
+// ===== filter tambahan, diingat per HP =====
+const FL_DEF = { who:'', periode:'all', dari:'', sampai:'', fu:'', kota:'', source:'', prospek:'', telat:false, noKet:false, urut:'sheet' };
+let FL = { ...FL_DEF };
+try { FL = { ...FL_DEF, ...JSON.parse(localStorage.getItem('leads_filter') || '{}') }; } catch (e) {}
+const simpanFL = () => { try { localStorage.setItem('leads_filter', JSON.stringify(FL)); } catch (e) {} };
+const AKTIF = ['belum', 'spk', 'cek', 'valid'];   // tahap yang masih perlu ditindaklanjuti
+
 // c = warna (variabel CSS)
 const STAGES = {
   SHN: [ { f:'belum', l:'Belum ada keputusan', c:'belum' }, { f:'spk', l:'SPK, belum DO', c:'spk' },
@@ -366,6 +390,81 @@ function stageRaw(r) {
 const stage = r => CMP === 'all' ? GEN[stageRaw(r)] : stageRaw(r);
 const stageList = () => STAGES[CMP] || STAGES.all;
 const rowOf = tr => ROWS.find(x => x.id === tr.dataset.id && x.pt === tr.dataset.pt);
+
+function fuHari(r) {                // hari sejak keterangan terakhir; belum pernah → sejak tanggal masuk
+  const ref = (r.lastFu || '').slice(0, 10) || r.tglKirim;
+  return days(ref);
+}
+function bulanOffset(ymd, n) {
+  const [y, m] = TODAY.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return ymd && ymd.slice(0, 7) === `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function lolosFilter(r) {
+  if (FL.who && up(r.spv) !== up(FL.who)) return false;
+  if (FL.kota && up(r.kota) !== up(FL.kota)) return false;
+  if (FL.source && up(r.source) !== up(FL.source)) return false;
+  if (FL.prospek && !(r.pt === 'PAS' && up(r.prospek).startsWith(FL.prospek))) return false;
+  if (FL.noKet && String(r.ket || '').trim()) return false;
+  if (FL.periode !== 'all') {
+    const t = r.tglKirim;
+    if (!t) return false;
+    if (FL.periode === '7' && !(days(t) >= 0 && days(t) <= 6)) return false;
+    if (FL.periode === 'ini' && !bulanOffset(t, 0)) return false;
+    if (FL.periode === 'lalu' && !bulanOffset(t, -1)) return false;
+    if (FL.periode === 'custom' && ((FL.dari && t < FL.dari) || (FL.sampai && t > FL.sampai))) return false;
+  }
+  if (FL.telat && !(['belum','cek'].includes(stageRaw(r)) && (days(r.tglKirim) ?? -1) >= AMBANG)) return false;
+  if (FL.fu && !(AKTIF.includes(stageRaw(r)) && (fuHari(r) ?? 0) > Number(FL.fu))) return false;
+  return true;
+}
+function jumlahFilterAktif() {
+  return Object.keys(FL_DEF).filter(k => k !== 'dari' && k !== 'sampai' && k !== 'urut' && FL[k] !== FL_DEF[k]).length;
+}
+function urutkan(list) {
+  const t = r => r.tglKirim || '';
+  if (FL.urut === 'lama') return list.sort((a, b) => t(a).localeCompare(t(b)));
+  if (FL.urut === 'baru') return list.sort((a, b) => t(b).localeCompare(t(a)));
+  if (FL.urut === 'fu')   return list.sort((a, b) => (fuHari(b) ?? -1) - (fuHari(a) ?? -1));
+  return list;
+}
+function fuTeks(r) {
+  if (!r.lastFu) return '';
+  const h = days(r.lastFu.slice(0, 10));
+  return h === 0 ? 'FU hari ini' : h === 1 ? 'FU kemarin' : `FU ${h} hari lalu`;
+}
+
+function renderFilters(base) {
+  const opsi = k => [...new Set(base.map(r => String(r[k] ?? '').trim()).filter(Boolean))]
+                      .sort((a, b) => a.localeCompare(b, 'id'));
+  const sel = (key, label, items, pakaiNilai) => {
+    const list = items.slice();
+    if (FL[key] && !list.some(x => (pakaiNilai ? x[0] : x) === FL[key])) list.push(pakaiNilai ? [FL[key], FL[key]] : FL[key]);
+    return `<select data-fl="${key}" aria-label="${label}" class="${FL[key] && FL[key] !== FL_DEF[key] ? 'on' : ''}">
+      <option value="${FL_DEF[key]}">${label}</option>
+      ${list.map(x => { const [v, t] = pakaiNilai ? x : [x, x];
+        return `<option value="${esc(v)}" ${v === FL[key] ? 'selected' : ''}>${esc(t)}</option>`; }).join('')}
+    </select>`;
+  };
+  const whoLabel = CMP === 'PAS' ? 'Semua sales' : CMP === 'SHN' ? 'Semua SPV' : 'Semua SPV / sales';
+  const adaPas = base.some(r => r.pt === 'PAS');
+  const n = jumlahFilterAktif();
+
+  $('#fbar').innerHTML =
+    sel('who', whoLabel, opsi('spv')) +
+    sel('periode', 'Semua periode', [['7','7 hari terakhir'], ['ini','Bulan ini'], ['lalu','Bulan lalu'], ['custom','Pilih tanggal']], true) +
+    (FL.periode === 'custom' ? `<span class="rng">
+        <input type="date" data-fl="dari" value="${esc(FL.dari)}" aria-label="Dari tanggal" class="${FL.dari ? 'on' : ''}"> s/d
+        <input type="date" data-fl="sampai" value="${esc(FL.sampai)}" aria-label="Sampai tanggal" class="${FL.sampai ? 'on' : ''}"></span>` : '') +
+    sel('fu', 'Semua FU', [['3','Belum FU > 3 hari'], ['7','Belum FU > 7 hari'], ['14','Belum FU > 14 hari']], true) +
+    sel('kota', 'Semua kota', opsi('kota')) +
+    sel('source', 'Semua source', opsi('source')) +
+    (adaPas ? sel('prospek', 'Semua prospek (PAS)', [['HOT','Hot'], ['MEDIUM','Medium'], ['LOW','Low']], true) : '') +
+    `<button class="tg warn ${FL.telat ? 'on' : ''}" data-tg="telat" aria-pressed="${FL.telat}">Terlambat ≥ ${AMBANG} hari</button>` +
+    `<button class="tg ${FL.noKet ? 'on' : ''}" data-tg="noKet" aria-pressed="${FL.noKet}">Tanpa keterangan</button>` +
+    sel('urut', 'Urutan sheet', [['lama','Terlama masuk'], ['baru','Terbaru masuk'], ['fu','FU paling lama']], true) +
+    (n || FL.urut !== 'sheet' ? `<button class="rst" data-rst>Reset${n ? ` (${n})` : ''}</button>` : '');
+}
 
 function days(ymd) {
   if (!ymd || !TODAY) return null;
@@ -476,7 +575,7 @@ function rowHtml(r) {
   const ketCell = (ME.canEdit
     ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
     : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`) +
-    (pas && r.tglFu ? `<div class="sub">FU: ${esc(r.tglFu)}</div>` : '');
+    (fuTeks(r) ? `<div class="sub">${fuTeks(r)}</div>` : '');
 
   const st1 = pas
     ? sel('stData', r.stData, OPTS.stData, 'Belum dicek', ro, RO)
@@ -537,7 +636,9 @@ function renderCompany() {
 
 function render() {
   renderCompany();
-  const SCOPE = ROWS.filter(inScope);
+  const BASE = ROWS.filter(inScope);
+  renderFilters(BASE);
+  const SCOPE = BASE.filter(lolosFilter);
   const ST = stageList();
   if (FILTER !== 'all' && !ST.some(s => s.f === FILTER)) FILTER = 'all';
 
@@ -545,7 +646,8 @@ function render() {
   ST.forEach(s => cnt[s.f] = 0);
   SCOPE.forEach(r => cnt[stage(r)]++);
   const telat = SCOPE.filter(r => ['belum','cek'].includes(stageRaw(r)) && (days(r.tglKirim) ?? -1) >= AMBANG).length;
-  $('#sum').textContent = `${SCOPE.length} lead` + (telat ? `, ${telat} belum ada keputusan ≥ ${AMBANG} hari` : '');
+  $('#sum').innerHTML = `${SCOPE.length} lead` + (telat
+    ? `, <button class="sumlink" data-tg="telat">${telat} belum ada keputusan ≥ ${AMBANG} hari</button>` : '');
 
   const pipe = $('#pipe');
   pipe.classList.toggle('filtered', FILTER !== 'all');
@@ -559,15 +661,16 @@ function render() {
   $('#dlKota').innerHTML = uniq('kota').map(v => `<option value="${esc(v)}">`).join('');
 
   const q = Q.toLowerCase();
-  const list = SCOPE.filter(r =>
+  const list = urutkan(SCOPE.filter(r =>
     (FILTER === 'all' || stage(r) === FILTER) &&
     (!q || [r.nama, r.kontak, r.unit, r.brand, r.spv, r.kota, r.ket, r.source, r.prospek]
-             .some(v => String(v ?? '').toLowerCase().includes(q))));
+             .some(v => String(v ?? '').toLowerCase().includes(q)))));
 
   if (!list.length) {
     $('#board').innerHTML = `<div class="empty">${
       q ? `Tidak ada lead yang cocok dengan “${esc(Q)}”.`
         : SCOPE.length ? 'Tidak ada lead di kategori ini.'
+        : BASE.length ? 'Tidak ada lead yang lolos filter. <br><button class="btn btn-line" data-rst>Reset filter</button>'
         : 'Belum ada lead untuk pilihan ini.'}</div>`;
     return;
   }
@@ -765,9 +868,23 @@ function toast(msg, bad) {
   clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), bad ? 5000 : 2500);
 }
 
+// filter
+$('#fbar').addEventListener('change', e => {
+  const k = e.target.dataset.fl; if (!k) return;
+  FL[k] = e.target.value;
+  if (k === 'periode' && FL.periode !== 'custom') { FL.dari = ''; FL.sampai = ''; }
+  simpanFL(); render();
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tg]');
+  if (t && (t.closest('#fbar') || t.closest('#sum'))) { FL[t.dataset.tg] = !FL[t.dataset.tg]; simpanFL(); return render(); }
+  if (e.target.closest('[data-rst]')) { FL = { ...FL_DEF }; simpanFL(); render(); }
+});
+
 $('#cmp').addEventListener('click', e => {
   const b = e.target.closest('.ct'); if (!b) return;
   CMP = b.dataset.c; BRAND = 'all'; FILTER = 'all';
+  if (FL.who || FL.kota) { FL.who = ''; FL.kota = ''; simpanFL(); }   // nama SPV/sales & kota beda per perusahaan
   render();
 });
 $('#brands').addEventListener('click', e => {
