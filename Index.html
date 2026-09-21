@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<title>Leads SHN & PAS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1C2430; --muted:#5E6876; --line:#DCE1E7; --paper:#F2F4F7; --card:#FFFFFF;
+  --navy:#22406B; --navy-2:#2D5690;
+  --belum:#D1921A; --spk:#1C837D; --do:#2F5DA8; --tidak:#858C97; --batal:#B4423A;
+  --warn:#B4423A;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color:var(--ink);background:var(--paper);font-size:14px;line-height:1.45;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--navy-2);outline-offset:2px}
+
+/* ---------- header ---------- */
+.top{background:var(--navy);color:#fff;padding:16px 20px 18px}
+.top-in{max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center}
+.brand{margin-right:auto}
+.brand h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.brand p{margin:2px 0 0;font-size:13px;color:#C9D5E6}
+.search{position:relative;flex:0 1 300px}
+.search input{width:100%;height:38px;border:0;border-radius:6px;padding:0 12px 0 34px;
+  background:rgba(255,255,255,.14);color:#fff}
+.search input::placeholder{color:#C9D5E6}
+.search input:focus{background:#fff;color:var(--ink)}
+.search svg{position:absolute;left:10px;top:11px;width:16px;height:16px;opacity:.75}
+.btn{height:38px;border-radius:6px;border:1px solid transparent;padding:0 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.btn-primary{background:#fff;color:var(--navy)}
+.btn-primary:hover{background:#E8EEF7}
+.btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn svg{width:16px;height:16px}
+
+/* ---------- perusahaan & brand ---------- */
+.cmp{max-width:1280px;margin:14px auto 0;display:flex;gap:4px;flex-wrap:wrap}
+.ct{border:0;cursor:pointer;background:transparent;color:#C9D5E6;padding:7px 12px;border-radius:6px;
+  display:flex;align-items:baseline;gap:8px;text-align:left}
+.ct b{color:#fff;font-weight:600}
+.ct small{font-size:12px}
+.ct:hover{background:rgba(255,255,255,.08)}
+.ct.on{background:#fff;color:var(--muted)}
+.ct.on b{color:var(--navy)}
+.ct.none b{color:#F3C8A8}
+.ct.none.on b{color:var(--warn)}
+.brands{display:flex;gap:6px;flex-wrap:wrap;padding-top:14px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;cursor:pointer;font-size:13px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip span{color:var(--muted);margin-left:4px}
+.chip.on span{color:#C9D0DA}
+.bd{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:4px;background:#EEF1F5;color:var(--muted);margin-bottom:3px}
+.bd.none{background:#FBECEA;color:var(--warn)}
+
+/* ---------- pipeline (filter) ---------- */
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px 40px}
+.pipe{display:flex;gap:4px;margin:-1px 0 18px;padding-top:14px;flex-wrap:wrap}
+.seg{flex:var(--g,1) 1 120px;min-width:0;border:0;cursor:pointer;text-align:left;
+  padding:10px 12px 11px;background:var(--card);border-top:4px solid var(--c);
+  border-radius:0 0 6px 6px;transition:opacity .15s, background .15s}
+.seg .n{display:block;font-size:24px;font-weight:700;line-height:1.1;color:var(--c)}
+.seg .l{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg[data-f="all"]{--c:var(--navy);flex:0 0 96px}
+.seg[data-f="belum"]{--c:var(--belum)} .seg[data-f="spk"]{--c:var(--spk)}
+.seg[data-f="do"]{--c:var(--do)} .seg[data-f="tidak"]{--c:var(--tidak)} .seg[data-f="batal"]{--c:var(--batal)}
+.pipe.filtered .seg:not(.on){opacity:.5}
+.seg.on{background:#fff;box-shadow:inset 0 -2px 0 var(--c)}
+.seg:hover{opacity:1}
+
+/* ---------- table ---------- */
+.board{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:calc(100vh - 230px)}
+table{width:100%;border-collapse:collapse;min-width:980px}
+thead th{position:sticky;top:0;z-index:1;background:#F7F8FA;text-align:left;font-weight:600;
+  font-size:12.5px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{box-shadow:inset 3px 0 0 var(--c,transparent)}
+tbody tr:hover{background:#FAFBFC}
+tr.st-belum{--c:var(--belum)} tr.st-spk{--c:var(--spk)} tr.st-do{--c:var(--do)}
+tr.st-tidak{--c:var(--tidak)} tr.st-batal{--c:var(--batal)}
+tr.saving{opacity:.45;pointer-events:none}
+.c-no{width:44px;color:var(--muted)}
+.nm{font-weight:600}
+.sub{color:var(--muted);font-size:12.5px}
+.tel{color:var(--navy-2);text-decoration:none;font-size:13px}
+.tel:hover{text-decoration:underline}
+.age{font-size:12.5px;color:var(--muted)}
+.age.warn{color:var(--warn);font-weight:600}
+.qs{width:100%;min-width:132px;height:32px;border:1px solid var(--line);border-radius:5px;background:#fff;padding:0 6px;cursor:pointer}
+.qs:disabled{background:#F4F5F7;color:#9AA1AB;cursor:not-allowed}
+.qs.has{border-color:var(--c);font-weight:600}
+.c-act{width:84px;white-space:nowrap;text-align:right}
+.ib{width:32px;height:32px;border:1px solid transparent;border-radius:5px;background:transparent;cursor:pointer;
+  display:inline-grid;place-items:center;color:var(--muted)}
+.ib:hover{background:#EEF1F5;color:var(--ink)}
+.ib.del:hover{background:#FBECEA;color:var(--batal)}
+.ib svg{width:16px;height:16px}
+.empty{padding:48px 20px;text-align:center;color:var(--muted)}
+.empty button{margin-top:12px}
+
+/* ---------- modal ---------- */
+.ov{position:fixed;inset:0;background:rgba(20,28,40,.45);display:none;align-items:flex-start;justify-content:center;
+  padding:6vh 16px;z-index:10;overflow:auto}
+.ov.open{display:flex}
+.modal{background:#fff;border-radius:8px;width:100%;max-width:640px;box-shadow:0 20px 50px rgba(20,28,40,.3)}
+.modal.sm{max-width:420px}
+.mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.mh h2{margin:0;font-size:17px;margin-right:auto}
+.mb{padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.mb .full{grid-column:1/-1}
+.mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.f label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.f input,.f select,.f textarea{width:100%;height:38px;border:1px solid var(--line);border-radius:5px;padding:0 10px;background:#fff}
+.f textarea{height:64px;padding:8px 10px;resize:vertical}
+.f input:disabled,.f select:disabled{background:#F4F5F7;color:#9AA1AB}
+.f .hint{font-size:12px;color:var(--muted);margin-top:4px}
+.f .hint.bad{color:var(--warn)}
+.grp{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;padding:14px;border-radius:6px;background:#F7F8FA}
+.grp-t{grid-column:1/-1;font-weight:600;font-size:13px;margin:0}
+.btn-line{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn-line:hover{background:#F4F5F7}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-navy:hover{background:var(--navy-2)}
+.btn-red{background:var(--batal);color:#fff}
+.btn-red:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.6;cursor:wait}
+.err{grid-column:1/-1;background:#FBECEA;color:var(--batal);padding:8px 12px;border-radius:5px;font-size:13px;display:none}
+.err.show{display:block}
+
+/* ---------- PIN ---------- */
+.gate{position:fixed;inset:0;z-index:30;background:var(--navy);display:none;align-items:center;justify-content:center;padding:24px}
+.gate.open{display:flex}
+.gate form{width:100%;max-width:320px;color:#fff}
+.gate h2{margin:0 0 4px;font-size:22px}
+.gate p{margin:0 0 20px;color:#C9D5E6;font-size:14px}
+.gate input{width:100%;height:52px;border:0;border-radius:6px;padding:0 14px;font-size:24px;letter-spacing:.3em;text-align:center;color:var(--ink)}
+.gate .btn{width:100%;justify-content:center;margin-top:12px;height:46px}
+.gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
+
+/* ---------- toast & loading ---------- */
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;
+  padding:10px 16px;border-radius:6px;font-size:13.5px;transition:all .2s;z-index:20;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.bad{background:var(--batal)}
+.loading{padding:60px;text-align:center;color:var(--muted)}
+
+/* ---------- mobile: tabel jadi kartu ---------- */
+@media (max-width:760px){
+  .top{padding:14px 14px 16px}
+  .search{flex:1 1 100%;order:3}
+  .wrap{padding:0 12px 30px}
+  .seg{flex:1 1 calc(33.33% - 4px)}
+  .seg[data-f="all"]{flex:1 1 calc(33.33% - 4px)}
+  .seg .n{font-size:20px}
+  .board{max-height:none;border:0;background:transparent;overflow:visible}
+  table{min-width:0}
+  thead{display:none}
+  tbody tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;background:#fff;border:1px solid var(--line);
+    border-radius:6px;margin-bottom:10px;padding:12px 12px 12px 15px}
+  tbody td{padding:0;border:0}
+  tbody td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted)}
+  .c-no{display:none}
+  .c-lead{grid-column:1/-1}
+  .c-act{grid-column:1/-1;text-align:left;border-top:1px solid var(--line)!important;padding-top:8px!important}
+  .mb,.grp{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1 id="title">Leads</h1>
+      <p id="sum">Memuat data…</p>
+    </div>
+    <label class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Cari nama, kontak, unit, SPV, kota" aria-label="Cari lead">
+    </label>
+    <button class="btn btn-ghost" id="btnReload" title="Ambil data terbaru dari sheet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+      Muat ulang
+    </button>
+    <button class="btn btn-ghost" id="btnOut" title="Keluar dari HP ini">Keluar</button>
+    <button class="btn btn-primary" id="btnAdd">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+      Tambah lead
+    </button>
+  </div>
+  <nav class="cmp" id="cmp" aria-label="Pilih perusahaan"></nav>
+</header>
+
+<main class="wrap">
+  <div class="brands" id="brands" hidden></div>
+  <nav class="pipe" id="pipe" aria-label="Filter status"></nav>
+  <div class="board" id="board"><div class="loading">Memuat data dari sheet…</div></div>
+</main>
+
+<!-- Form tambah / edit -->
+<div class="ov" id="ovForm" role="dialog" aria-modal="true" aria-labelledby="fTitle">
+  <form class="modal" id="form" novalidate>
+    <div class="mh">
+      <h2 id="fTitle">Tambah lead</h2>
+      <button type="button" class="ib" data-close aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="mb">
+      <div class="err" id="fErr"></div>
+      <div class="f"><label for="f_brand">Brand</label><select id="f_brand" required></select></div>
+      <div class="f"><label>Perusahaan</label><input id="f_pt" disabled></div>
+      <div class="f full"><label for="f_nama">Nama leads</label><input id="f_nama" autocomplete="off" required></div>
+      <div class="f"><label for="f_kontak">Kontak</label><input id="f_kontak" inputmode="tel" autocomplete="off" placeholder="08xxxxxxxxxx">
+        <div class="hint" id="kHint"></div></div>
+      <div class="f"><label for="f_unit">Unit</label><input id="f_unit" autocomplete="off" placeholder="Calya, Rush GR MT"></div>
+      <div class="f"><label for="f_spv">SPV</label><input id="f_spv" list="dlSpv" autocomplete="off"></div>
+      <div class="f"><label for="f_kota">Kota</label><input id="f_kota" list="dlKota" autocomplete="off" placeholder="BERAU"></div>
+      <div class="f"><label for="f_source">Source leads</label><select id="f_source"></select></div>
+      <div class="f"><label for="f_tglKirim">Tgl kirim ke SPV</label><input id="f_tglKirim" type="date"></div>
+      <div class="f full"><label for="f_ket">Keterangan</label><textarea id="f_ket" placeholder="DP, tenor, catatan follow-up"></textarea></div>
+
+      <div class="grp">
+        <p class="grp-t">Status</p>
+        <div class="f"><label for="f_spk">Status SPK</label><select id="f_spk"></select></div>
+        <div class="f"><label for="f_tglSpk">Tgl update SPK</label><input id="f_tglSpk" type="date"></div>
+        <div class="f"><label for="f_do">Status DO</label><select id="f_do"></select>
+          <div class="hint" id="doHint">Bisa diisi setelah Status SPK = SPK.</div></div>
+        <div class="f"><label for="f_tglDo">Tgl update DO</label><input id="f_tglDo" type="date"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn btn-line" data-close>Batal</button>
+      <button type="submit" class="btn btn-navy" id="fSubmit">Simpan lead</button>
+    </div>
+  </form>
+</div>
+
+<!-- Konfirmasi hapus -->
+<div class="ov" id="ovDel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="modal sm">
+    <div class="mh"><h2 id="dTitle">Hapus lead</h2></div>
+    <div class="mb" style="grid-template-columns:1fr">
+      <div id="dText"></div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn btn-line" data-close>Batal</button>
+      <button type="button" class="btn btn-red" id="dOk">Hapus lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- Layar PIN -->
+<div class="gate" id="gate">
+  <form id="gForm" novalidate>
+    <h2>Leads SHN & PAS</h2>
+    <p>Masukkan PIN untuk membuka data leads.</p>
+    <input id="gPin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="PIN">
+    <button class="btn btn-primary" id="gBtn" type="submit">Masuk</button>
+    <div class="gerr" id="gErr" role="alert"></div>
+  </form>
+</div>
+
+<datalist id="dlSpv"></datalist>
+<datalist id="dlKota"></datalist>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ===================== STATE =====================
+let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[] }, TODAY = '', PT = [];
+let FILTER = 'all', Q = '', EDIT_ID = null, DEL_ID = null;
+let CMP = 'all', BRAND = 'all';   // CMP: 'all' | kode perusahaan | 'none' (brand kosong)
+const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
+
+const STAGES = [
+  { f:'belum', l:'Belum ada keputusan' },
+  { f:'spk',   l:'SPK, belum DO' },
+  { f:'do',    l:'DO' },
+  { f:'tidak', l:'Tidak jadi SPK' },
+  { f:'batal', l:'Batal DO' }
+];
+
+const $  = s => document.querySelector(s);
+const up = v => String(v ?? '').trim().toUpperCase();
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const digits = s => String(s ?? '').replace(/\D/g, '');
+
+function cmpOf(brand) {
+  const b = up(brand);
+  const pt = PT.find(p => p.brand.some(x => up(x) === b));
+  return pt ? pt.kode : 'none';
+}
+function inScope(r) {
+  if (CMP === 'all') return true;
+  if (cmpOf(r.brand) !== CMP) return false;
+  return BRAND === 'all' || up(r.brand) === up(BRAND);
+}
+
+function stage(r) {
+  if (!String(r.spk).trim()) return 'belum';
+  if (up(r.spk) === 'TIDAK JADI SPK') return 'tidak';
+  if (up(r.do) === 'BATAL DO') return 'batal';
+  if (up(r.do) === 'DO') return 'do';
+  return 'spk';
+}
+function days(ymd) {
+  if (!ymd || !TODAY) return null;
+  return Math.round((Date.parse(TODAY) - Date.parse(ymd)) / 86400000);
+}
+const BLN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function fmt(ymd) {
+  if (!ymd) return '';
+  const [y, m, d] = ymd.split('-');
+  return `${+d} ${BLN[+m - 1]} ${y.slice(2)}`;
+}
+
+// ===================== SERVER & PIN =====================
+const TK_KEY = 'leads_token';
+let TOKEN = '';
+try { TOKEN = localStorage.getItem(TK_KEY) || ''; } catch (e) {}
+function setToken(t) { TOKEN = t; try { t ? localStorage.setItem(TK_KEY, t) : localStorage.removeItem(TK_KEY); } catch (e) {} }
+
+// ===== ALAMAT API: URL Web app dari Apps Script (Deploy > Manage deployments) =====
+const API_URL = 'https://script.google.com/macros/s/AKfycbzSE0f59NkQfSHQ7_iQyE7l15uG6ixvkvwBojUNGX0a9kU10V8maCKeWU7ituGoCqm-/exec';
+
+// credentials:'omit' = tidak membawa login Google HP → bebas dari bug multi-akun
+async function call(action, payload) {
+  let res, j;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // tanpa preflight CORS
+      body: JSON.stringify({ action, ...payload }),
+      credentials: 'omit',
+      redirect: 'follow'
+    });
+  } catch (e) { throw new Error('Tidak bisa terhubung ke server. Cek koneksi internet.'); }
+  try { j = await res.json(); }
+  catch (e) { throw new Error('Server tidak merespons dengan benar. Pastikan deployment Apps Script aksesnya "Anyone".'); }
+  if (!j.ok) throw new Error(j.error || 'Terjadi kesalahan di server.');
+  return j;
+}
+// semua akses data lewat sini: token ikut dikirim, sesi habis → layar PIN
+async function api(action, payload = {}) {
+  try { return (await call(action, { token: TOKEN, ...payload })).data; }
+  catch (e) {
+    if (e.message.includes('AUTH:')) { setToken(''); showGate(); e.message = 'Sesi berakhir, masukkan PIN lagi.'; }
+    throw e;
+  }
+}
+function showGate(msg) {
+  $('#gErr').textContent = msg || '';
+  $('#gPin').value = '';
+  $('#gate').classList.add('open');
+  setTimeout(() => $('#gPin').focus(), 50);
+}
+$('#gForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pin = $('#gPin').value.trim();
+  if (!pin) return;
+  const b = $('#gBtn'); b.disabled = true; $('#gErr').textContent = '';
+  try {
+    setToken((await call('login', { pin })).token);
+    $('#gate').classList.remove('open');
+    await refresh();
+  } catch (ex) {
+    $('#gErr').textContent = ex.message; $('#gPin').select();
+  } finally { b.disabled = false; }
+});
+function load(json) {
+  const d = JSON.parse(json);
+  ROWS = d.rows; OPTS = d.opts; TODAY = d.today; PT = d.perusahaan;
+  render();
+}
+async function refresh(msg) {
+  try { load(await api('data')); if (msg) toast(msg); }
+  catch (e) { if (!TOKEN) return; $('#board').innerHTML = `<div class="empty">Gagal memuat data: ${esc(e.message)}<br><button class="btn btn-line" onclick="refresh()">Coba lagi</button></div>`; }
+}
+
+// ===================== RENDER =====================
+function sel(field, val, list, emptyLabel, disabled) {
+  const v = String(val ?? '').trim();
+  const items = list.slice();
+  if (v && !items.some(x => up(x) === up(v))) items.push(v);   // nilai lama di luar dropdown tetap tampil
+  return `<select class="qs ${v ? 'has' : ''}" data-field="${field}" ${disabled ? 'disabled title="Isi Status SPK = SPK dulu"' : ''}>
+    <option value="">${emptyLabel}</option>
+    ${items.map(x => `<option ${up(x) === up(v) ? 'selected' : ''}>${esc(x)}</option>`).join('')}
+  </select>`;
+}
+
+function rowHtml(r) {
+  const st = stage(r), age = days(r.tglKirim);
+  const showAge = (st === 'belum' || st === 'spk') && age !== null;
+  const doLocked = up(r.spk) !== 'SPK';
+  return `<tr data-id="${esc(r.id)}" class="st-${st}">
+    <td class="c-no">${esc(r.no)}</td>
+    <td class="c-lead"><div class="nm">${esc(r.nama)}</div>
+      ${r.kontak ? `<a class="tel" href="tel:${esc(digits(r.kontak))}">${esc(r.kontak)}</a>` : '<span class="sub">Tanpa kontak</span>'}</td>
+    <td data-l="SPV / Kota"><div>${esc(r.spv) || '-'}</div><div class="sub">${esc(r.kota) || '-'}</div></td>
+    <td data-l="Unit">${r.brand ? `<span class="bd">${esc(r.brand)}</span>` : '<span class="bd none">Brand kosong</span>'}
+      <div>${esc(r.unit) || '-'}</div>${r.ket ? `<div class="sub">${esc(r.ket)}</div>` : ''}</td>
+    <td data-l="Source">${esc(r.source) || '-'}</td>
+    <td data-l="Kirim ke SPV">${r.tglKirim
+        ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
+        : '<span class="sub">Belum diisi</span>'}</td>
+    <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada')}
+      ${r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : ''}</td>
+    <td data-l="Status DO">${sel('do', r.do, OPTS.do, 'Belum', doLocked)}
+      ${r.tglDo ? `<div class="sub">${fmt(r.tglDo)}</div>` : ''}</td>
+    <td class="c-act">
+      <button class="ib" data-act="edit" aria-label="Edit ${esc(r.nama)}" title="Edit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>
+      <button class="ib del" data-act="del" aria-label="Hapus ${esc(r.nama)}" title="Hapus">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+    </td>
+  </tr>`;
+}
+
+function renderCompany() {
+  const nNone = ROWS.filter(r => cmpOf(r.brand) === 'none').length;
+  if (CMP === 'none' && !nNone) CMP = 'all';
+  const tabs = [{ k:'all', nm:'Semua perusahaan', n:ROWS.length }]
+    .concat(PT.map(p => ({ k:p.kode, nm:p.nama, n:ROWS.filter(r => cmpOf(r.brand) === p.kode).length })));
+  if (nNone) tabs.push({ k:'none', nm:'Brand belum diisi', n:nNone });
+  $('#cmp').innerHTML = tabs.map(t =>
+    `<button class="ct ${t.k === 'none' ? 'none' : ''} ${CMP === t.k ? 'on' : ''}" data-c="${t.k}">
+      <b>${t.k === 'all' || t.k === 'none' ? esc(t.nm) : `${t.k} ${esc(t.nm)}`}</b><small>${t.n}</small></button>`).join('');
+
+  const pt = PT.find(p => p.kode === CMP);
+  $('#title').textContent = pt ? `Leads ${pt.nama}` : CMP === 'none' ? 'Leads tanpa brand' : 'Leads semua perusahaan';
+
+  // chip brand hanya untuk perusahaan dengan lebih dari satu brand
+  const box = $('#brands');
+  if (pt && pt.brand.length > 1) {
+    const base = ROWS.filter(r => cmpOf(r.brand) === pt.kode);
+    box.hidden = false;
+    box.innerHTML = [{ b:'all', nm:'Semua brand', n:base.length }]
+      .concat(pt.brand.map(b => ({ b, nm:b, n:base.filter(r => up(r.brand) === up(b)).length })))
+      .map(c => `<button class="chip ${up(BRAND) === up(c.b) ? 'on' : ''}" data-b="${esc(c.b)}">${esc(c.nm)}<span>${c.n}</span></button>`).join('');
+  } else {
+    box.hidden = true; box.innerHTML = '';
+  }
+}
+
+function render() {
+  renderCompany();
+  const SCOPE = ROWS.filter(inScope);
+
+  // ringkasan & pipeline
+  const cnt = { all: SCOPE.length };
+  STAGES.forEach(s => cnt[s.f] = 0);
+  SCOPE.forEach(r => cnt[stage(r)]++);
+  const telat = SCOPE.filter(r => stage(r) === 'belum' && (days(r.tglKirim) ?? -1) >= AMBANG).length;
+  $('#sum').textContent = `${SCOPE.length} lead` + (telat ? `, ${telat} belum ada keputusan ≥ ${AMBANG} hari` : '');
+
+  const pipe = $('#pipe');
+  pipe.classList.toggle('filtered', FILTER !== 'all');
+  pipe.innerHTML =
+    `<button class="seg ${FILTER === 'all' ? 'on' : ''}" data-f="all"><span class="n">${cnt.all}</span><span class="l">Semua</span></button>` +
+    STAGES.map(s => `<button class="seg ${FILTER === s.f ? 'on' : ''}" data-f="${s.f}" style="--g:${Math.max(cnt[s.f], 1)}">
+      <span class="n">${cnt[s.f]}</span><span class="l">${s.l}</span></button>`).join('');
+
+  // datalist SPV & kota dari data yang ada
+  const uniq = k => [...new Set(ROWS.map(r => String(r[k]).trim()).filter(Boolean))].sort();
+  $('#dlSpv').innerHTML  = uniq('spv').map(v => `<option value="${esc(v)}">`).join('');
+  $('#dlKota').innerHTML = uniq('kota').map(v => `<option value="${esc(v)}">`).join('');
+
+  // tabel
+  const q = Q.toLowerCase();
+  const list = SCOPE.filter(r =>
+    (FILTER === 'all' || stage(r) === FILTER) &&
+    (!q || [r.nama, r.kontak, r.unit, r.brand, r.spv, r.kota, r.ket, r.source].some(v => String(v).toLowerCase().includes(q))));
+
+  if (!list.length) {
+    $('#board').innerHTML = `<div class="empty">${
+      q ? `Tidak ada lead yang cocok dengan “${esc(Q)}”.`
+        : SCOPE.length ? 'Tidak ada lead di kategori ini.'
+        : ROWS.length ? 'Belum ada lead untuk pilihan ini.'
+        : 'Belum ada lead. Tambahkan lead pertama.<br><button class="btn btn-navy" onclick="openForm()">Tambah lead</button>'}</div>`;
+    return;
+  }
+  $('#board').innerHTML = `<table>
+    <thead><tr><th>No</th><th>Lead</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
+      <th>Kirim ke SPV</th><th>Status SPK</th><th>Status DO</th><th></th></tr></thead>
+    <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
+}
+
+// ===================== SIMPAN =====================
+async function persist(p, okMsg, trEl) {
+  if (trEl) trEl.classList.add('saving');
+  try {
+    load(await api('save', { row: p }));
+    toast(okMsg);
+    return true;
+  } catch (e) {
+    if (trEl) trEl.classList.remove('saving');
+    render();
+    toast(e.message, true);
+    return false;
+  }
+}
+
+// ubah status langsung dari tabel
+async function quickSave(tr, field, val) {
+  const r = ROWS.find(x => x.id === tr.dataset.id);
+  if (!r) return;
+  const p = { ...r, [field]: val };
+  if (field === 'spk') {
+    if (up(val) !== 'SPK' && r.do) {
+      toast('Kosongkan Status DO dulu sebelum mengubah Status SPK.', true);
+      return render();
+    }
+    p.tglSpk = val ? TODAY : '';
+  }
+  if (field === 'do') p.tglDo = val ? TODAY : '';
+  await persist(p, `${r.nama}: ${val || 'status dikosongkan'}`, tr);
+}
+
+// ===================== FORM =====================
+const F = k => $('#f_' + k);
+const FIELDS = ['brand','nama','kontak','unit','spv','kota','source','tglKirim','ket','spk','tglSpk','do','tglDo'];
+
+function fillSelect(el, list, emptyLabel, cur) {
+  const items = list.slice();
+  if (cur && !items.some(x => up(x) === up(cur))) items.push(cur);
+  el.innerHTML = `<option value="">${emptyLabel}</option>` +
+    items.map(x => `<option ${up(x) === up(cur) ? 'selected' : ''}>${esc(x)}</option>`).join('');
+}
+
+function syncStatus(fromUser) {
+  const spk = F('spk').value, isSpk = up(spk) === 'SPK';
+  if (fromUser === 'spk') F('tglSpk').value = spk ? (F('tglSpk').value || TODAY) : '';
+  F('tglSpk').disabled = !spk;
+
+  if (!isSpk) { F('do').value = ''; F('tglDo').value = ''; }
+  F('do').disabled = !isSpk;
+  $('#doHint').style.display = isSpk ? 'none' : 'block';
+
+  const dov = F('do').value;
+  if (fromUser === 'do') F('tglDo').value = dov ? (F('tglDo').value || TODAY) : '';
+  F('tglDo').disabled = !dov;
+}
+
+function syncPt() {
+  const pt = PT.find(p => p.kode === cmpOf(F('brand').value));
+  F('pt').value = pt ? `${pt.kode} ${pt.nama}` : '';
+}
+
+function checkKontak() {
+  const k = digits(F('kontak').value), h = $('#kHint');
+  const dup = k && ROWS.find(r => r.id !== EDIT_ID && digits(r.kontak) === k);
+  h.textContent = dup ? `Nomor ini sudah tercatat atas nama ${dup.nama} (No ${dup.no}).` : '';
+  h.classList.toggle('bad', !!dup);
+}
+
+function openForm(id) {
+  EDIT_ID = id || null;
+  const r = id ? ROWS.find(x => x.id === id) : {};
+  $('#fTitle').textContent = id ? `Edit lead: ${r.nama}` : 'Tambah lead';
+  $('#fSubmit').textContent = id ? 'Simpan perubahan' : 'Simpan lead';
+  $('#fErr').classList.remove('show');
+  // brand default untuk lead baru mengikuti filter yang sedang aktif
+  const pt = PT.find(p => p.kode === CMP);
+  const defBrand = id ? (r.brand || '') : (BRAND !== 'all' ? BRAND : pt && pt.brand.length === 1 ? pt.brand[0] : '');
+  fillSelect(F('brand'), OPTS.brand, 'Pilih brand', defBrand);
+  syncPt();
+  fillSelect(F('source'), OPTS.source, 'Pilih source', r.source || '');
+  fillSelect(F('spk'), OPTS.spk, 'Belum ada keputusan', r.spk || '');
+  fillSelect(F('do'), OPTS.do, 'Belum', r.do || '');
+  FIELDS.filter(k => !['brand','source','spk','do'].includes(k)).forEach(k => F(k).value = r[k] || '');
+  syncStatus();
+  checkKontak();
+  openOv('#ovForm');
+  setTimeout(() => (F('brand').value ? F('nama') : F('brand')).focus(), 30);
+}
+
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const p = { id: EDIT_ID };
+  FIELDS.forEach(k => p[k] = F(k).value.trim());
+  const err = $('#fErr');
+  if (!p.brand) { err.textContent = 'Pilih brand dulu.'; err.classList.add('show'); return F('brand').focus(); }
+  if (!p.nama) { err.textContent = 'Nama leads wajib diisi.'; err.classList.add('show'); return F('nama').focus(); }
+
+  const btn = $('#fSubmit'); btn.disabled = true;
+  try {
+    load(await api('save', { row: p }));
+    closeOv('#ovForm');
+    toast(EDIT_ID ? `Perubahan ${p.nama} disimpan` : `${p.nama} ditambahkan`);
+  } catch (ex) {
+    err.textContent = ex.message; err.classList.add('show');
+  } finally { btn.disabled = false; }
+});
+F('spk').addEventListener('change', () => syncStatus('spk'));
+F('do').addEventListener('change', () => syncStatus('do'));
+F('kontak').addEventListener('input', checkKontak);
+F('brand').addEventListener('change', syncPt);
+
+// ===================== HAPUS =====================
+function openDel(id) {
+  const r = ROWS.find(x => x.id === id);
+  if (!r) return;
+  DEL_ID = id;
+  $('#dText').innerHTML = `Lead <b>${esc(r.nama)}</b>${r.kontak ? ` (${esc(r.kontak)})` : ''} akan dihapus beserta barisnya di sheet. Tindakan ini tidak bisa dibatalkan.`;
+  openOv('#ovDel');
+  setTimeout(() => $('#dOk').focus(), 30);
+}
+$('#dOk').addEventListener('click', async () => {
+  const b = $('#dOk'); b.disabled = true;
+  const nama = (ROWS.find(x => x.id === DEL_ID) || {}).nama || 'Lead';
+  try { load(await api('delete', { id: DEL_ID })); closeOv('#ovDel'); toast(`${nama} dihapus`); }
+  catch (e) { toast(e.message, true); }
+  finally { b.disabled = false; }
+});
+
+// ===================== MODAL, TOAST, EVENT =====================
+function openOv(s)  { $(s).classList.add('open'); }
+function closeOv(s) { $(s).classList.remove('open'); }
+document.querySelectorAll('.ov').forEach(ov => {
+  ov.addEventListener('mousedown', e => { if (e.target === ov) closeOv('#' + ov.id); });
+  ov.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeOv('#' + ov.id)));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.ov.open').forEach(ov => closeOv('#' + ov.id));
+});
+
+let tt;
+function toast(msg, bad) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.toggle('bad', !!bad); t.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), bad ? 5000 : 2500);
+}
+
+$('#cmp').addEventListener('click', e => {
+  const b = e.target.closest('.ct'); if (!b) return;
+  CMP = b.dataset.c; BRAND = 'all'; FILTER = 'all';
+  render();
+});
+$('#brands').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  BRAND = b.dataset.b; FILTER = 'all';
+  render();
+});
+$('#pipe').addEventListener('click', e => {
+  const b = e.target.closest('.seg'); if (!b) return;
+  FILTER = (FILTER === b.dataset.f) ? 'all' : b.dataset.f;
+  render();
+});
+$('#board').addEventListener('change', e => {
+  const s = e.target.closest('select.qs'); if (!s) return;
+  quickSave(s.closest('tr'), s.dataset.field, s.value);
+});
+$('#board').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('tr').dataset.id;
+  b.dataset.act === 'edit' ? openForm(id) : openDel(id);
+});
+let qt;
+$('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { Q = e.target.value.trim(); render(); }, 150); });
+$('#btnAdd').addEventListener('click', () => openForm());
+$('#btnOut').addEventListener('click', () => {
+  setToken(''); ROWS = []; render(); showGate('Anda sudah keluar dari HP ini.');
+});
+$('#btnReload').addEventListener('click', () => refresh('Data diperbarui dari sheet'));
+
+if (TOKEN) refresh(); else showGate();
+</script>
+</body>
+</html>
