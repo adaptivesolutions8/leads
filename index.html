@@ -102,7 +102,7 @@ tr.saving{opacity:.45;pointer-events:none}
 .ket{white-space:pre-wrap;word-break:break-word;cursor:text;padding:5px 7px;margin:-5px -7px;border-radius:5px;
   border:1px dashed transparent;min-height:30px}
 .ket:hover,.ket:focus-visible{border-color:#B9C2CE;background:#FAFBFC}
-.ket.empty{color:#9AA1AB}
+.ket.nil{color:#9AA1AB}
 .ket-in{width:100%;min-height:64px;border:1px solid var(--navy-2);border-radius:5px;padding:6px 8px;resize:vertical;
   font:inherit;line-height:1.4;background:#fff}
 .ket-tip{font-size:11.5px;color:var(--muted);margin-top:3px}
@@ -437,7 +437,7 @@ function rowHtml(r) {
         ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
         : '<span class="sub">Belum diisi</span>'}</td>
     <td class="c-ket" data-l="Keterangan">${ME.canEdit
-      ? `<div class="ket ${r.ket ? '' : 'empty'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
+      ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
       : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`}</td>
     <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada', !ME.canEdit, 'Akun Anda hanya bisa melihat')}
       ${r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : ''}</td>
