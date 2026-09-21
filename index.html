@@ -157,6 +157,19 @@ tr.saving{opacity:.45;pointer-events:none}
 .gate .btn{width:100%;justify-content:center;margin-top:12px;height:46px}
 .gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
 
+/* ---------- riwayat ---------- */
+.nm-btn{all:unset;font-weight:600;cursor:pointer;border-radius:3px}
+.nm-btn:hover{text-decoration:underline}
+.nm-btn:focus-visible{outline:2px solid var(--navy-2);outline-offset:2px}
+.lb{padding:4px 20px 18px;max-height:65vh;overflow:auto}
+.lhead{padding:12px 20px 0;color:var(--muted);font-size:13px}
+.lg{display:grid;grid-template-columns:118px 1fr;gap:2px 14px;padding:11px 0;border-bottom:1px solid var(--line)}
+.lg:last-child{border-bottom:0}
+.lg time{color:var(--muted);font-size:12.5px;padding-top:1px}
+.lg .old{color:var(--muted);text-decoration:line-through}
+.lg .by{grid-column:2;font-size:12px;color:var(--muted)}
+.bd.hot{background:#FBECEA;color:var(--batal)} .bd.med{background:#FDF3E1;color:#9A6A0F}
+
 /* ---------- toast & loading ---------- */
 .toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;
   padding:10px 16px;border-radius:6px;font-size:13.5px;transition:all .2s;z-index:20;max-width:90vw}
@@ -259,6 +272,20 @@ tr.saving{opacity:.45;pointer-events:none}
   </form>
 </div>
 
+<!-- Riwayat -->
+<div class="ov" id="ovLog" role="dialog" aria-modal="true" aria-labelledby="lTitle">
+  <div class="modal">
+    <div class="mh">
+      <h2 id="lTitle">Riwayat</h2>
+      <button type="button" class="ib" data-close aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="lhead" id="lHead"></div>
+    <div class="lb" id="lBody"></div>
+  </div>
+</div>
+
 <!-- Konfirmasi hapus -->
 <div class="ov" id="ovDel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
   <div class="modal sm">
@@ -293,43 +320,53 @@ tr.saving{opacity:.45;pointer-events:none}
 
 <script>
 // ===================== STATE =====================
-let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[] }, TODAY = '', PT = [];
+let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[], stData:[], status:[] }, TODAY = '', PT = [];
 let ME = { canAdd:false, canEdit:false };
 let FILTER = 'all', Q = '', EDIT_ID = null, DEL_ID = null;
-let CMP = 'all', BRAND = 'all';   // CMP: 'all' | kode perusahaan | 'none' (brand kosong)
+let CMP = 'all', BRAND = 'all';   // CMP: 'all' | 'SHN' | 'PAS'
 const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
 
-const STAGES = [
-  { f:'belum', l:'Belum ada keputusan' },
-  { f:'spk',   l:'SPK, belum DO' },
-  { f:'do',    l:'DO' },
-  { f:'tidak', l:'Tidak jadi SPK' },
-  { f:'batal', l:'Batal DO' }
-];
+// c = warna (variabel CSS)
+const STAGES = {
+  SHN: [ { f:'belum', l:'Belum ada keputusan', c:'belum' }, { f:'spk', l:'SPK, belum DO', c:'spk' },
+         { f:'do', l:'DO', c:'do' }, { f:'tidak', l:'Tidak jadi SPK', c:'tidak' }, { f:'batal', l:'Batal DO', c:'batal' } ],
+  PAS: [ { f:'cek', l:'Belum dicek', c:'belum' }, { f:'valid', l:'Valid, belum Deal', c:'spk' },
+         { f:'deal', l:'Deal', c:'do' }, { f:'drop', l:'Drop / Invalid', c:'tidak' }, { f:'cancel', l:'Cancel', c:'batal' } ],
+  all: [ { f:'g1', l:'Belum ada keputusan', c:'belum' }, { f:'g2', l:'Dalam proses', c:'spk' },
+         { f:'g3', l:'Closing (DO / Deal)', c:'do' }, { f:'g4', l:'Gugur', c:'tidak' } ]
+};
+const GEN = { belum:'g1', cek:'g1', spk:'g2', valid:'g2', do:'g3', deal:'g3', tidak:'g4', batal:'g4', drop:'g4', cancel:'g4' };
+const WARNA = {};
+Object.values(STAGES).flat().forEach(s => WARNA[s.f] = s.c);
 
 const $  = s => document.querySelector(s);
 const up = v => String(v ?? '').trim().toUpperCase();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const digits = s => String(s ?? '').replace(/\D/g, '');
 
-function cmpOf(brand) {
-  const b = up(brand);
-  const pt = PT.find(p => p.brand.some(x => up(x) === b));
-  return pt ? pt.kode : 'none';
-}
 function inScope(r) {
   if (CMP === 'all') return true;
-  if (cmpOf(r.brand) !== CMP) return false;
+  if (r.pt !== CMP) return false;
   return BRAND === 'all' || up(r.brand) === up(BRAND);
 }
-
-function stage(r) {
+function stageRaw(r) {
+  if (r.pt === 'PAS') {
+    if (up(r.status) === 'DEAL') return 'deal';
+    if (up(r.status) === 'CANCEL') return 'cancel';
+    const s = up(r.stData);
+    if (!s) return 'cek';
+    return s === 'VALID' ? 'valid' : 'drop';
+  }
   if (!String(r.spk).trim()) return 'belum';
   if (up(r.spk) === 'TIDAK JADI SPK') return 'tidak';
   if (up(r.do) === 'BATAL DO') return 'batal';
   if (up(r.do) === 'DO') return 'do';
   return 'spk';
 }
+const stage = r => CMP === 'all' ? GEN[stageRaw(r)] : stageRaw(r);
+const stageList = () => STAGES[CMP] || STAGES.all;
+const rowOf = tr => ROWS.find(x => x.id === tr.dataset.id && x.pt === tr.dataset.pt);
+
 function days(ymd) {
   if (!ymd || !TODAY) return null;
   return Math.round((Date.parse(TODAY) - Date.parse(ymd)) / 86400000);
@@ -369,7 +406,7 @@ async function call(action, payload) {
 }
 // semua akses data lewat sini: token ikut dikirim, sesi habis → layar PIN
 async function api(action, payload = {}) {
-  try { return (await call(action, { token: TOKEN, ...payload })).data; }
+  try { const j = await call(action, { token: TOKEN, ...payload }); return 'data' in j ? j.data : j; }
   catch (e) {
     if (e.message.includes('AUTH:')) { setToken(''); showGate(); e.message = 'Sesi berakhir, masukkan PIN lagi.'; }
     throw e;
@@ -400,11 +437,12 @@ function load(json) {
   const d = JSON.parse(json);
   ROWS = d.rows; OPTS = d.opts; TODAY = d.today; PT = d.perusahaan; ME = d.me;
   if (PT.length === 1 && CMP === 'all') CMP = PT[0].kode;
-  $('#btnAdd').hidden = !ME.canAdd;
+  syncAddBtn();
   $('#btnOut').textContent = `Keluar (${ME.nama})`;
   $('#btnOut').title = `Masuk sebagai ${ME.nama}, role ${ME.role}`;
   render();
 }
+function syncAddBtn() { $('#btnAdd').hidden = !ME.canAdd || CMP === 'PAS'; }
 async function refresh(msg) {
   try { load(await api('data')); if (msg) toast(msg); }
   catch (e) { if (!TOKEN) return; $('#board').innerHTML = `<div class="empty">Gagal memuat data: ${esc(e.message)}<br><button class="btn btn-line" onclick="refresh()">Coba lagi</button></div>`; }
@@ -421,32 +459,51 @@ function sel(field, val, list, emptyLabel, disabled, why) {
   </select>`;
 }
 
+const RO = 'Akun Anda hanya bisa melihat';
+function badgeProspek(p) {
+  const u = up(p);
+  if (!u) return '';
+  if (u.startsWith('HOT')) return '<span class="bd hot">Hot</span>';
+  if (u.startsWith('MEDIUM')) return '<span class="bd med">Medium</span>';
+  return '<span class="bd">Low</span>';
+}
+
 function rowHtml(r) {
-  const st = stage(r), age = days(r.tglKirim);
-  const showAge = (st === 'belum' || st === 'spk') && age !== null;
-  const doLocked = up(r.spk) !== 'SPK';
-  return `<tr data-id="${esc(r.id)}" class="st-${st}">
+  const pas = r.pt === 'PAS', raw = stageRaw(r), age = days(r.tglKirim);
+  const showAge = ['belum','spk','cek','valid'].includes(raw) && age !== null;
+  const ro = !ME.canEdit;
+
+  const ketCell = !pas && ME.canEdit
+    ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
+    : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>${pas && r.tglFu ? `<div class="sub">FU: ${esc(r.tglFu)}</div>` : ''}`;
+
+  const st1 = pas
+    ? sel('stData', r.stData, OPTS.stData, 'Belum dicek', ro, RO)
+    : sel('spk', r.spk, OPTS.spk, 'Belum ada', ro, RO) + (r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : '');
+  const st2 = pas
+    ? sel('status', r.status, OPTS.status, 'Belum', ro || up(r.stData) !== 'VALID', ro ? RO : 'Isi Status Data = Valid dulu')
+    : sel('do', r.do, OPTS.do, 'Belum', ro || up(r.spk) !== 'SPK', ro ? RO : 'Isi Status SPK = SPK dulu') +
+      (r.tglDo ? `<div class="sub">${fmt(r.tglDo)}</div>` : '');
+
+  return `<tr data-id="${esc(r.id)}" data-pt="${r.pt}" class="st-${raw}" style="--c:var(--${WARNA[raw]})">
     <td class="c-no">${esc(r.no)}</td>
-    <td class="c-lead"><div class="nm">${esc(r.nama)}</div>
+    <td class="c-lead"><button class="nm-btn" data-act="log" title="Lihat riwayat">${esc(r.nama)}</button><br>
       ${r.kontak ? `<a class="tel" href="tel:${esc(digits(r.kontak))}">${esc(r.kontak)}</a>` : '<span class="sub">Tanpa kontak</span>'}</td>
-    <td data-l="SPV / Kota"><div>${esc(r.spv) || '-'}</div><div class="sub">${esc(r.kota) || '-'}</div></td>
-    <td data-l="Unit">${r.brand ? `<span class="bd">${esc(r.brand)}</span>` : '<span class="bd none">Brand kosong</span>'}
+    <td data-l="${pas ? 'Sales / Kota' : 'SPV / Kota'}"><div>${esc(r.spv) || '-'}</div><div class="sub">${esc(r.kota) || '-'}</div></td>
+    <td data-l="Unit">${r.brand ? `<span class="bd">${esc(r.brand)}</span>` : '<span class="bd none">Brand kosong</span>'} ${pas ? badgeProspek(r.prospek) : ''}
       <div>${esc(r.unit) || '-'}</div></td>
     <td data-l="Source">${esc(r.source) || '-'}</td>
-    <td data-l="Kirim ke SPV">${r.tglKirim
+    <td data-l="${pas ? 'Tanggal masuk' : 'Kirim ke SPV'}">${r.tglKirim
         ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
         : '<span class="sub">Belum diisi</span>'}</td>
-    <td class="c-ket" data-l="Keterangan">${ME.canEdit
-      ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
-      : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`}</td>
-    <td data-l="Status SPK">${sel('spk', r.spk, OPTS.spk, 'Belum ada', !ME.canEdit, 'Akun Anda hanya bisa melihat')}
-      ${r.tglSpk ? `<div class="sub">${fmt(r.tglSpk)}</div>` : ''}</td>
-    <td data-l="Status DO">${sel('do', r.do, OPTS.do, 'Belum', doLocked || !ME.canEdit,
-        !ME.canEdit ? 'Akun Anda hanya bisa melihat' : 'Isi Status SPK = SPK dulu')}
-      ${r.tglDo ? `<div class="sub">${fmt(r.tglDo)}</div>` : ''}</td>
-    <td class="c-act">${ME.canEdit ? `
+    <td class="c-ket" data-l="Keterangan">${ketCell}</td>
+    <td data-l="${pas ? 'Status Data' : 'Status SPK'}">${st1}</td>
+    <td data-l="${pas ? 'Status' : 'Status DO'}">${st2}</td>
+    <td class="c-act">
+      <button class="ib" data-act="log" aria-label="Riwayat ${esc(r.nama)}" title="Riwayat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>${!pas && ME.canEdit ? `
       <button class="ib" data-act="edit" aria-label="Edit ${esc(r.nama)}" title="Edit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>` : ''}${r.canDel ? `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>` : ''}${!pas && r.canDel ? `
       <button class="ib del" data-act="del" aria-label="Hapus ${esc(r.nama)}" title="Hapus">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}
     </td>
@@ -454,22 +511,20 @@ function rowHtml(r) {
 }
 
 function renderCompany() {
-  const nNone = ROWS.filter(r => cmpOf(r.brand) === 'none').length;
-  if (CMP === 'none' && !nNone) CMP = PT.length === 1 ? PT[0].kode : 'all';
+  if (CMP !== 'all' && !PT.some(p => p.kode === CMP)) CMP = PT.length === 1 ? PT[0].kode : 'all';
   const tabs = (PT.length > 1 ? [{ k:'all', nm:'Semua perusahaan', n:ROWS.length }] : [])
-    .concat(PT.map(p => ({ k:p.kode, nm:p.nama, n:ROWS.filter(r => cmpOf(r.brand) === p.kode).length })));
-  if (nNone) tabs.push({ k:'none', nm:'Brand belum diisi', n:nNone });
+    .concat(PT.map(p => ({ k:p.kode, nm:p.nama, n:ROWS.filter(r => r.pt === p.kode).length })));
   $('#cmp').innerHTML = tabs.map(t =>
-    `<button class="ct ${t.k === 'none' ? 'none' : ''} ${CMP === t.k ? 'on' : ''}" data-c="${t.k}">
-      <b>${t.k === 'all' || t.k === 'none' ? esc(t.nm) : `${t.k} ${esc(t.nm)}`}</b><small>${t.n}</small></button>`).join('');
+    `<button class="ct ${CMP === t.k ? 'on' : ''}" data-c="${t.k}">
+      <b>${t.k === 'all' ? 'Semua' : t.k}</b><small>${t.n}</small></button>`).join('');
 
   const pt = PT.find(p => p.kode === CMP);
-  $('#title').textContent = pt ? `Leads ${pt.nama}` : CMP === 'none' ? 'Leads tanpa brand' : 'Leads semua perusahaan';
+  $('#title').textContent = pt ? `Leads ${pt.kode}` : 'Leads SHN & PAS';
+  syncAddBtn();
 
-  // chip brand hanya untuk perusahaan dengan lebih dari satu brand
   const box = $('#brands');
   if (pt && pt.brand.length > 1) {
-    const base = ROWS.filter(r => cmpOf(r.brand) === pt.kode);
+    const base = ROWS.filter(r => r.pt === pt.kode);
     box.hidden = false;
     box.innerHTML = [{ b:'all', nm:'Semua brand', n:base.length }]
       .concat(pt.brand.map(b => ({ b, nm:b, n:base.filter(r => up(r.brand) === up(b)).length })))
@@ -482,43 +537,45 @@ function renderCompany() {
 function render() {
   renderCompany();
   const SCOPE = ROWS.filter(inScope);
+  const ST = stageList();
+  if (FILTER !== 'all' && !ST.some(s => s.f === FILTER)) FILTER = 'all';
 
-  // ringkasan & pipeline
   const cnt = { all: SCOPE.length };
-  STAGES.forEach(s => cnt[s.f] = 0);
+  ST.forEach(s => cnt[s.f] = 0);
   SCOPE.forEach(r => cnt[stage(r)]++);
-  const telat = SCOPE.filter(r => stage(r) === 'belum' && (days(r.tglKirim) ?? -1) >= AMBANG).length;
+  const telat = SCOPE.filter(r => ['belum','cek'].includes(stageRaw(r)) && (days(r.tglKirim) ?? -1) >= AMBANG).length;
   $('#sum').textContent = `${SCOPE.length} lead` + (telat ? `, ${telat} belum ada keputusan ≥ ${AMBANG} hari` : '');
 
   const pipe = $('#pipe');
   pipe.classList.toggle('filtered', FILTER !== 'all');
   pipe.innerHTML =
     `<button class="seg ${FILTER === 'all' ? 'on' : ''}" data-f="all"><span class="n">${cnt.all}</span><span class="l">Semua</span></button>` +
-    STAGES.map(s => `<button class="seg ${FILTER === s.f ? 'on' : ''}" data-f="${s.f}" style="--g:${Math.max(cnt[s.f], 1)}">
+    ST.map(s => `<button class="seg ${FILTER === s.f ? 'on' : ''}" data-f="${s.f}" style="--g:${Math.max(cnt[s.f], 1)};--c:var(--${s.c})">
       <span class="n">${cnt[s.f]}</span><span class="l">${s.l}</span></button>`).join('');
 
-  // datalist SPV & kota dari data yang ada
-  const uniq = k => [...new Set(ROWS.map(r => String(r[k]).trim()).filter(Boolean))].sort();
+  const uniq = k => [...new Set(ROWS.filter(r => r.pt === 'SHN').map(r => String(r[k]).trim()).filter(Boolean))].sort();
   $('#dlSpv').innerHTML  = uniq('spv').map(v => `<option value="${esc(v)}">`).join('');
   $('#dlKota').innerHTML = uniq('kota').map(v => `<option value="${esc(v)}">`).join('');
 
-  // tabel
   const q = Q.toLowerCase();
   const list = SCOPE.filter(r =>
     (FILTER === 'all' || stage(r) === FILTER) &&
-    (!q || [r.nama, r.kontak, r.unit, r.brand, r.spv, r.kota, r.ket, r.source].some(v => String(v).toLowerCase().includes(q))));
+    (!q || [r.nama, r.kontak, r.unit, r.brand, r.spv, r.kota, r.ket, r.source, r.prospek]
+             .some(v => String(v ?? '').toLowerCase().includes(q))));
 
   if (!list.length) {
     $('#board').innerHTML = `<div class="empty">${
       q ? `Tidak ada lead yang cocok dengan “${esc(Q)}”.`
         : SCOPE.length ? 'Tidak ada lead di kategori ini.'
-        : ROWS.length ? 'Belum ada lead untuk pilihan ini.'
-        : 'Belum ada lead. Tambahkan lead pertama.<br><button class="btn btn-navy" onclick="openForm()">Tambah lead</button>'}</div>`;
+        : 'Belum ada lead untuk pilihan ini.'}</div>`;
     return;
   }
+  const H = CMP === 'PAS' ? ['Sales / Kota', 'Tanggal masuk', 'Status Data', 'Status']
+          : CMP === 'SHN' ? ['SPV / Kota', 'Kirim ke SPV', 'Status SPK', 'Status DO']
+          : ['SPV / Sales', 'Tanggal', 'Status SPK / Data', 'Status DO / Deal'];
   $('#board').innerHTML = `<table>
-    <thead><tr><th>No</th><th>Lead</th><th>SPV / Kota</th><th>Unit</th><th>Source</th>
-      <th>Kirim ke SPV</th><th>Keterangan</th><th>Status SPK</th><th>Status DO</th><th></th></tr></thead>
+    <thead><tr><th>No</th><th>Lead</th><th>${H[0]}</th><th>Unit</th><th>Source</th>
+      <th>${H[1]}</th><th>Keterangan</th><th>${H[2]}</th><th>${H[3]}</th><th></th></tr></thead>
     <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
 }
 
@@ -539,8 +596,20 @@ async function persist(p, okMsg, trEl) {
 
 // ubah status langsung dari tabel
 async function quickSave(tr, field, val) {
-  const r = ROWS.find(x => x.id === tr.dataset.id);
+  const r = rowOf(tr);
   if (!r) return;
+  if (r.pt === 'PAS') {
+    if (field === 'stData' && up(val) !== 'VALID' && r.status) {
+      toast('Kosongkan Status (DEAL/CANCEL) dulu sebelum mengubah Status Data.', true);
+      return render();
+    }
+    tr.classList.add('saving');
+    try {
+      load(await api('savePas', { id: r.id, field, value: val }));
+      toast(`${r.nama}: ${val || 'status dikosongkan'}`);
+    } catch (e) { render(); toast(e.message, true); }
+    return;
+  }
   const p = { ...r, [field]: val };
   if (field === 'spk') {
     if (up(val) !== 'SPK' && r.do) {
@@ -551,6 +620,29 @@ async function quickSave(tr, field, val) {
   }
   if (field === 'do') p.tglDo = val ? TODAY : '';
   await persist(p, `${r.nama}: ${val || 'status dikosongkan'}`, tr);
+}
+
+// ===================== RIWAYAT =====================
+async function openLog(tr) {
+  const r = rowOf(tr);
+  if (!r) return;
+  $('#lTitle').textContent = `Riwayat: ${r.nama}`;
+  $('#lHead').textContent = r.pt === 'PAS'
+    ? 'PAS: perubahan dari AppSheet dicek tiap 10 menit dan tercatat tanpa nama user.'
+    : 'SHN: semua perubahan lewat aplikasi ini.';
+  $('#lBody').innerHTML = '<div class="empty" style="padding:30px">Memuat riwayat…</div>';
+  openOv('#ovLog');
+  try {
+    const log = (await api('log', { id: r.id, pt: r.pt })).log || [];
+    $('#lBody').innerHTML = log.length ? log.map(x => `<div class="lg">
+        <time>${esc(x.waktu)}</time>
+        <div><b>${esc(x.kolom)}</b>: ${x.lama ? `<span class="old">${esc(x.lama)}</span> → ` : ''}${esc(x.baru) || '<span class="sub">(dikosongkan)</span>'}</div>
+        <div class="by">oleh ${esc(x.oleh)}, ${esc(x.sumber)}</div>
+      </div>`).join('')
+      : '<div class="empty" style="padding:30px">Belum ada riwayat. Perubahan tercatat sejak fitur ini dipasang.</div>';
+  } catch (e) {
+    $('#lBody').innerHTML = `<div class="empty" style="padding:30px">${esc(e.message)}</div>`;
+  }
 }
 
 // ===================== FORM =====================
@@ -578,10 +670,7 @@ function syncStatus(fromUser) {
   F('tglDo').disabled = !dov;
 }
 
-function syncPt() {
-  const pt = PT.find(p => p.kode === cmpOf(F('brand').value));
-  F('pt').value = pt ? `${pt.kode} ${pt.nama}` : '';
-}
+function syncPt() { F('pt').value = 'SHN'; }
 
 function checkKontak() {
   const k = digits(F('kontak').value), h = $('#kHint');
@@ -592,13 +681,12 @@ function checkKontak() {
 
 function openForm(id) {
   EDIT_ID = id || null;
-  const r = id ? ROWS.find(x => x.id === id) : {};
-  $('#fTitle').textContent = id ? `Edit lead: ${r.nama}` : 'Tambah lead';
+  const r = id ? ROWS.find(x => x.id === id && x.pt === 'SHN') : {};
+  $('#fTitle').textContent = id ? `Edit lead: ${r.nama}` : 'Tambah lead SHN';
   $('#fSubmit').textContent = id ? 'Simpan perubahan' : 'Simpan lead';
   $('#fErr').classList.remove('show');
   // brand default untuk lead baru mengikuti filter yang sedang aktif
-  const pt = PT.find(p => p.kode === CMP);
-  const defBrand = id ? (r.brand || '') : (BRAND !== 'all' ? BRAND : pt && pt.brand.length === 1 ? pt.brand[0] : '');
+  const defBrand = id ? (r.brand || '') : (OPTS.brand.length === 1 ? OPTS.brand[0] : '');
   fillSelect(F('brand'), OPTS.brand, 'Pilih brand', defBrand);
   syncPt();
   fillSelect(F('source'), OPTS.source, 'Pilih source', r.source || '');
@@ -643,7 +731,7 @@ F('brand').addEventListener('change', syncPt);
 
 // ===================== HAPUS =====================
 function openDel(id) {
-  const r = ROWS.find(x => x.id === id);
+  const r = ROWS.find(x => x.id === id && x.pt === 'SHN');
   if (!r) return;
   DEL_ID = id;
   $('#dText').innerHTML = `Lead <b>${esc(r.nama)}</b>${r.kontak ? ` (${esc(r.kontak)})` : ''} akan dihapus beserta barisnya di sheet. Tindakan ini tidak bisa dibatalkan.`;
@@ -697,7 +785,8 @@ $('#board').addEventListener('change', e => {
 });
 $('#board').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  const id = b.closest('tr').dataset.id;
+  const tr = b.closest('tr'), id = tr.dataset.id;
+  if (b.dataset.act === 'log') return openLog(tr);
   if (b.dataset.act === 'ket') return editKet(b);
   b.dataset.act === 'edit' ? openForm(id) : openDel(id);
 });
@@ -709,7 +798,7 @@ $('#board').addEventListener('keydown', e => {
 // Klik → ketik → Enter / klik di luar = simpan, Shift+Enter = baris baru, Esc = batal
 function editKet(div) {
   const tr = div.closest('tr');
-  const r = ROWS.find(x => x.id === tr.dataset.id);
+  const r = rowOf(tr);
   if (!r) return;
   const td = div.parentElement;
   td.innerHTML = `<textarea class="ket-in" aria-label="Keterangan ${esc(r.nama)}"></textarea>
