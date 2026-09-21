@@ -83,7 +83,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   border-radius:0 0 6px 6px;transition:opacity .15s, background .15s}
 .seg .n{display:block;font-size:24px;font-weight:700;line-height:1.1;color:var(--c)}
 .seg .l{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.seg[data-f="all"]{--c:var(--navy);flex:0 0 96px}
+.seg[data-f="all"],.seg[data-f="aktif"]{--c:var(--navy);flex:0 0 96px}
 .seg[data-f="belum"]{--c:var(--belum)} .seg[data-f="spk"]{--c:var(--spk)}
 .seg[data-f="do"]{--c:var(--do)} .seg[data-f="tidak"]{--c:var(--tidak)} .seg[data-f="batal"]{--c:var(--batal)}
 .pipe.filtered .seg:not(.on){opacity:.5}
@@ -201,7 +201,7 @@ thead th.c-lead{left:0;z-index:3}
   .search{flex:1 1 100%;order:3}
   .wrap{padding:0 12px 30px}
   .seg{flex:1 1 calc(33.33% - 4px)}
-  .seg[data-f="all"]{flex:1 1 calc(33.33% - 4px)}
+  .seg[data-f="all"],.seg[data-f="aktif"]{flex:1 1 calc(33.33% - 4px)}
   .seg .n{font-size:20px}
   /* tabel sama seperti desktop, digeser ke kanan */
   .board{max-height:none;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -339,7 +339,7 @@ thead th.c-lead{left:0;z-index:3}
 // ===================== STATE =====================
 let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[], stData:[], status:[] }, TODAY = '', PT = [];
 let ME = { canAdd:false, canEdit:false };
-let FILTER = 'all', Q = '', EDIT_ID = null, DEL_ID = null;
+let FILTER = 'aktif', Q = '', EDIT_ID = null, DEL_ID = null;
 let CMP = 'all', BRAND = 'all';   // CMP: 'all' | 'SHN' | 'PAS'
 const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
 
@@ -350,18 +350,21 @@ try { FL = { ...FL_DEF, ...JSON.parse(localStorage.getItem('leads_filter') || '{
 const simpanFL = () => { try { localStorage.setItem('leads_filter', JSON.stringify(FL)); } catch (e) {} };
 const AKTIF = ['belum', 'spk', 'cek', 'valid'];   // tahap yang masih perlu ditindaklanjuti
 
-// c = warna (variabel CSS)
+// c = warna (variabel CSS). Tampilan awal = "Aktif" (data baru + valid/SPK); yang gugur disembunyikan.
 const STAGES = {
   SHN: [ { f:'belum', l:'Belum ada keputusan', c:'belum' }, { f:'spk', l:'SPK, belum DO', c:'spk' },
-         { f:'do', l:'DO', c:'do' }, { f:'tidak', l:'Tidak jadi SPK', c:'tidak' }, { f:'batal', l:'Batal DO', c:'batal' } ],
-  PAS: [ { f:'cek', l:'Belum dicek', c:'belum' }, { f:'valid', l:'Valid, belum Deal', c:'spk' },
-         { f:'deal', l:'Deal', c:'do' }, { f:'drop', l:'Drop / Invalid', c:'tidak' }, { f:'cancel', l:'Cancel', c:'batal' } ],
+         { f:'do', l:'DO', c:'do' }, { f:'gugur', l:'Gugur (tidak jadi / batal)', c:'tidak' } ],
+  PAS: [ { f:'cek', l:'Data baru (belum dicek)', c:'belum' }, { f:'valid', l:'Valid, belum Deal', c:'spk' },
+         { f:'deal', l:'Deal', c:'do' }, { f:'gugur', l:'Gugur (drop / invalid / cancel)', c:'tidak' } ],
   all: [ { f:'g1', l:'Belum ada keputusan', c:'belum' }, { f:'g2', l:'Dalam proses', c:'spk' },
-         { f:'g3', l:'Closing (DO / Deal)', c:'do' }, { f:'g4', l:'Gugur', c:'tidak' } ]
+         { f:'g3', l:'Closing (DO / Deal)', c:'do' }, { f:'gugur', l:'Gugur', c:'tidak' } ]
 };
-const GEN = { belum:'g1', cek:'g1', spk:'g2', valid:'g2', do:'g3', deal:'g3', tidak:'g4', batal:'g4', drop:'g4', cancel:'g4' };
-const WARNA = {};
-Object.values(STAGES).flat().forEach(s => WARNA[s.f] = s.c);
+// tahap mentah → kelompok
+const GRUP = { belum:'belum', spk:'spk', do:'do', cek:'cek', valid:'valid', deal:'deal',
+               tidak:'gugur', batal:'gugur', drop:'gugur', cancel:'gugur' };
+const GEN  = { belum:'g1', cek:'g1', spk:'g2', valid:'g2', do:'g3', deal:'g3', gugur:'gugur' };
+const WARNA = { belum:'belum', cek:'belum', spk:'spk', valid:'spk', do:'do', deal:'do',
+                tidak:'tidak', drop:'tidak', batal:'batal', cancel:'batal' };
 
 const $  = s => document.querySelector(s);
 const up = v => String(v ?? '').trim().toUpperCase();
@@ -387,7 +390,8 @@ function stageRaw(r) {
   if (up(r.do) === 'DO') return 'do';
   return 'spk';
 }
-const stage = r => CMP === 'all' ? GEN[stageRaw(r)] : stageRaw(r);
+const stage = r => CMP === 'all' ? GEN[GRUP[stageRaw(r)]] : GRUP[stageRaw(r)];
+const isAktif = r => AKTIF.includes(stageRaw(r));
 const stageList = () => STAGES[CMP] || STAGES.all;
 const rowOf = tr => ROWS.find(x => x.id === tr.dataset.id && x.pt === tr.dataset.pt);
 
@@ -640,21 +644,22 @@ function render() {
   renderFilters(BASE);
   const SCOPE = BASE.filter(lolosFilter);
   const ST = stageList();
-  if (FILTER !== 'all' && !ST.some(s => s.f === FILTER)) FILTER = 'all';
+  if (!['all','aktif'].includes(FILTER) && !ST.some(s => s.f === FILTER)) FILTER = 'aktif';
 
-  const cnt = { all: SCOPE.length };
+  const cnt = { all: SCOPE.length, aktif: SCOPE.filter(isAktif).length };
   ST.forEach(s => cnt[s.f] = 0);
   SCOPE.forEach(r => cnt[stage(r)]++);
   const telat = SCOPE.filter(r => ['belum','cek'].includes(stageRaw(r)) && (days(r.tglKirim) ?? -1) >= AMBANG).length;
-  $('#sum').innerHTML = `${SCOPE.length} lead` + (telat
+  $('#sum').innerHTML = `${cnt.aktif} lead aktif dari ${SCOPE.length}` + (telat
     ? `, <button class="sumlink" data-tg="telat">${telat} belum ada keputusan ≥ ${AMBANG} hari</button>` : '');
 
   const pipe = $('#pipe');
   pipe.classList.toggle('filtered', FILTER !== 'all');
   pipe.innerHTML =
-    `<button class="seg ${FILTER === 'all' ? 'on' : ''}" data-f="all"><span class="n">${cnt.all}</span><span class="l">Semua</span></button>` +
+    `<button class="seg ${FILTER === 'aktif' ? 'on' : ''}" data-f="aktif" title="Data baru + dalam proses"><span class="n">${cnt.aktif}</span><span class="l">Aktif</span></button>` +
     ST.map(s => `<button class="seg ${FILTER === s.f ? 'on' : ''}" data-f="${s.f}" style="--g:${Math.max(cnt[s.f], 1)};--c:var(--${s.c})">
-      <span class="n">${cnt[s.f]}</span><span class="l">${s.l}</span></button>`).join('');
+      <span class="n">${cnt[s.f]}</span><span class="l">${s.l}</span></button>`).join('') +
+    `<button class="seg ${FILTER === 'all' ? 'on' : ''}" data-f="all"><span class="n">${cnt.all}</span><span class="l">Semua</span></button>`;
 
   const uniq = k => [...new Set(ROWS.filter(r => r.pt === 'SHN').map(r => String(r[k]).trim()).filter(Boolean))].sort();
   $('#dlSpv').innerHTML  = uniq('spv').map(v => `<option value="${esc(v)}">`).join('');
@@ -662,7 +667,7 @@ function render() {
 
   const q = Q.toLowerCase();
   const list = urutkan(SCOPE.filter(r =>
-    (FILTER === 'all' || stage(r) === FILTER) &&
+    (FILTER === 'all' || (FILTER === 'aktif' ? isAktif(r) : stage(r) === FILTER)) &&
     (!q || [r.nama, r.kontak, r.unit, r.brand, r.spv, r.kota, r.ket, r.source, r.prospek]
              .some(v => String(v ?? '').toLowerCase().includes(q)))));
 
@@ -883,18 +888,18 @@ document.addEventListener('click', e => {
 
 $('#cmp').addEventListener('click', e => {
   const b = e.target.closest('.ct'); if (!b) return;
-  CMP = b.dataset.c; BRAND = 'all'; FILTER = 'all';
+  CMP = b.dataset.c; BRAND = 'all'; FILTER = 'aktif';
   if (FL.who || FL.kota) { FL.who = ''; FL.kota = ''; simpanFL(); }   // nama SPV/sales & kota beda per perusahaan
   render();
 });
 $('#brands').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
-  BRAND = b.dataset.b; FILTER = 'all';
+  BRAND = b.dataset.b; FILTER = 'aktif';
   render();
 });
 $('#pipe').addEventListener('click', e => {
   const b = e.target.closest('.seg'); if (!b) return;
-  FILTER = (FILTER === b.dataset.f) ? 'all' : b.dataset.f;
+  FILTER = (FILTER === b.dataset.f) ? 'aktif' : b.dataset.f;
   render();
 });
 $('#board').addEventListener('change', e => {
