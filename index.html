@@ -89,6 +89,10 @@ tr.st-belum{--c:var(--belum)} tr.st-spk{--c:var(--spk)} tr.st-do{--c:var(--do)}
 tr.st-tidak{--c:var(--tidak)} tr.st-batal{--c:var(--batal)}
 tr.saving{opacity:.45;pointer-events:none}
 .c-no{width:44px;color:var(--muted)}
+/* kolom Lead tetap terlihat saat tabel digeser ke kanan */
+td.c-lead{position:sticky;left:0;z-index:1;background:var(--card);box-shadow:inset 3px 0 0 var(--c,transparent)}
+tbody tr:hover td.c-lead{background:#FAFBFC}
+thead th.c-lead{left:0;z-index:3}
 .nm{font-weight:600}
 .sub{color:var(--muted);font-size:12.5px}
 .tel{color:var(--navy-2);text-decoration:none;font-size:13px}
@@ -166,7 +170,7 @@ tr.saving{opacity:.45;pointer-events:none}
 .lg{display:grid;grid-template-columns:118px 1fr;gap:2px 14px;padding:11px 0;border-bottom:1px solid var(--line)}
 .lg:last-child{border-bottom:0}
 .lg time{color:var(--muted);font-size:12.5px;padding-top:1px}
-.lg .old{color:var(--muted);text-decoration:line-through}
+.lg .txt{white-space:pre-wrap;word-break:break-word}
 .lg .by{grid-column:2;font-size:12px;color:var(--muted)}
 .bd.hot{background:#FBECEA;color:var(--batal)} .bd.med{background:#FDF3E1;color:#9A6A0F}
 
@@ -185,17 +189,13 @@ tr.saving{opacity:.45;pointer-events:none}
   .seg{flex:1 1 calc(33.33% - 4px)}
   .seg[data-f="all"]{flex:1 1 calc(33.33% - 4px)}
   .seg .n{font-size:20px}
-  .board{max-height:none;border:0;background:transparent;overflow:visible}
-  table{min-width:0}
-  thead{display:none}
-  tbody tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;background:#fff;border:1px solid var(--line);
-    border-radius:6px;margin-bottom:10px;padding:12px 12px 12px 15px}
-  tbody td{padding:0;border:0}
-  tbody td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted)}
+  /* tabel sama seperti desktop, digeser ke kanan */
+  .board{max-height:none;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:1040px;font-size:13.5px}
+  thead th,tbody td{padding:9px 10px}
   .c-no{display:none}
-  .c-lead,.c-ket{grid-column:1/-1}
-  .c-ket{max-width:none}
-  .c-act{grid-column:1/-1;text-align:left;border-top:1px solid var(--line)!important;padding-top:8px!important}
+  td.c-lead,th.c-lead{min-width:132px;max-width:150px}
+  .c-ket{min-width:190px}
   .mb,.grp{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -473,9 +473,10 @@ function rowHtml(r) {
   const showAge = ['belum','spk','cek','valid'].includes(raw) && age !== null;
   const ro = !ME.canEdit;
 
-  const ketCell = !pas && ME.canEdit
+  const ketCell = (ME.canEdit
     ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
-    : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>${pas && r.tglFu ? `<div class="sub">FU: ${esc(r.tglFu)}</div>` : ''}`;
+    : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`) +
+    (pas && r.tglFu ? `<div class="sub">FU: ${esc(r.tglFu)}</div>` : '');
 
   const st1 = pas
     ? sel('stData', r.stData, OPTS.stData, 'Belum dicek', ro, RO)
@@ -574,7 +575,7 @@ function render() {
           : CMP === 'SHN' ? ['SPV / Kota', 'Kirim ke SPV', 'Status SPK', 'Status DO']
           : ['SPV / Sales', 'Tanggal', 'Status SPK / Data', 'Status DO / Deal'];
   $('#board').innerHTML = `<table>
-    <thead><tr><th>No</th><th>Lead</th><th>${H[0]}</th><th>Unit</th><th>Source</th>
+    <thead><tr><th class="c-no">No</th><th class="c-lead">Lead</th><th>${H[0]}</th><th>Unit</th><th>Source</th>
       <th>${H[1]}</th><th>Keterangan</th><th>${H[2]}</th><th>${H[3]}</th><th></th></tr></thead>
     <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
 }
@@ -628,18 +629,18 @@ async function openLog(tr) {
   if (!r) return;
   $('#lTitle').textContent = `Riwayat: ${r.nama}`;
   $('#lHead').textContent = r.pt === 'PAS'
-    ? 'PAS: perubahan dari AppSheet dicek tiap 10 menit dan tercatat tanpa nama user.'
-    : 'SHN: semua perubahan lewat aplikasi ini.';
+    ? 'Riwayat keterangan. Catatan dari AppSheet masuk paling lambat 10 menit setelah disimpan.'
+    : 'Riwayat keterangan.';
   $('#lBody').innerHTML = '<div class="empty" style="padding:30px">Memuat riwayat…</div>';
   openOv('#ovLog');
   try {
     const log = (await api('log', { id: r.id, pt: r.pt })).log || [];
     $('#lBody').innerHTML = log.length ? log.map(x => `<div class="lg">
         <time>${esc(x.waktu)}</time>
-        <div><b>${esc(x.kolom)}</b>: ${x.lama ? `<span class="old">${esc(x.lama)}</span> → ` : ''}${esc(x.baru) || '<span class="sub">(dikosongkan)</span>'}</div>
-        <div class="by">oleh ${esc(x.oleh)}, ${esc(x.sumber)}</div>
+        <div class="txt">${esc(x.baru)}</div>
+        <div class="by">${esc(x.oleh)}${x.sumber && x.oleh !== x.sumber ? `, lewat ${esc(x.sumber)}` : ''}</div>
       </div>`).join('')
-      : '<div class="empty" style="padding:30px">Belum ada riwayat. Perubahan tercatat sejak fitur ini dipasang.</div>';
+      : '<div class="empty" style="padding:30px">Belum ada riwayat keterangan.</div>';
   } catch (e) {
     $('#lBody').innerHTML = `<div class="empty" style="padding:30px">${esc(e.message)}</div>`;
   }
@@ -812,6 +813,12 @@ function editKet(div) {
     if (selesai) return; selesai = true;
     const val = ta.value.trim();
     if (val === String(r.ket || '').trim()) return render();
+    if (r.pt === 'PAS') {
+      tr.classList.add('saving');
+      try { load(await api('savePas', { id: r.id, field: 'ket', value: val })); toast(`Keterangan ${r.nama} disimpan`); }
+      catch (e) { render(); toast(e.message, true); }
+      return;
+    }
     await persist({ ...r, ket: val }, `Keterangan ${r.nama} disimpan`, tr);
   };
   ta.addEventListener('keydown', e => {
