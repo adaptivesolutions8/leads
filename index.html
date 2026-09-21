@@ -385,7 +385,7 @@ try { TOKEN = localStorage.getItem(TK_KEY) || ''; } catch (e) {}
 function setToken(t) { TOKEN = t; try { t ? localStorage.setItem(TK_KEY, t) : localStorage.removeItem(TK_KEY); } catch (e) {} }
 
 // ===== ALAMAT API: URL Web app dari Apps Script (Deploy > Manage deployments) =====
-const API_URL = 'https://script.google.com/macros/s/AKfycbw0yV2bjUyOX5SVeTekd0hKt7gpOIKN31bsaUUkYIsgxPjoNtaVBUl-caZ1kRtJngLb/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwvJhtclImy6pMSPnd0ao9sxYsaqoQ7hszwn_dg8drtq4dJSI3NchnO3MqBi_yC7bga9Q/exec';
 
 // credentials:'omit' = tidak membawa login Google HP → bebas dari bug multi-akun
 async function call(action, payload) {
