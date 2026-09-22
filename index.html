@@ -15,6 +15,7 @@
   --warn:#B4423A;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   color:var(--ink);background:var(--paper);font-size:14px;line-height:1.45;
@@ -329,7 +330,7 @@ thead th.c-lead{left:0;z-index:3}
         <select id="p_prospek"><option value="">Pilih</option><option>Hot</option><option>Medium</option><option>Low</option></select></div>
       <div class="f"><label for="p_kategori">Kategori Pembelian <span class="req">*</span></label>
         <select id="p_kategori"><option value="">Pilih</option><option>First Buyer</option><option>Additional</option><option>Replacement</option></select></div>
-      <div class="f full"><label for="p_ket">Keterangan / catatan follow-up</label><textarea id="p_ket" placeholder="Opsional"></textarea></div>
+      <div class="f full" id="pKetBox"><label for="p_ket">Keterangan / catatan follow-up</label><textarea id="p_ket" placeholder="Opsional"></textarea></div>
       <p class="fmeta" id="pMeta"></p>
     </div>
     <div class="mf">
@@ -495,7 +496,8 @@ function renderFilters(base) {
                       .sort((a, b) => a.localeCompare(b, 'id'));
   const sel = (key, label, items, pakaiNilai) => {
     const list = items.slice();
-    if (FL[key] && !list.some(x => (pakaiNilai ? x[0] : x) === FL[key])) list.push(pakaiNilai ? [FL[key], FL[key]] : FL[key]);
+    if (FL[key] && FL[key] !== FL_DEF[key] && !list.some(x => (pakaiNilai ? x[0] : x) === FL[key]))
+      list.push(pakaiNilai ? [FL[key], FL[key]] : FL[key]);
     return `<select data-fl="${key}" aria-label="${label}" class="${FL[key] && FL[key] !== FL_DEF[key] ? 'on' : ''}">
       <option value="${FL_DEF[key]}">${label}</option>
       ${list.map(x => { const [v, t] = pakaiNilai ? x : [x, x];
@@ -568,6 +570,7 @@ const kosongJadiNull = v => { const s = String(v ?? '').trim(); return s ? s : n
 function pesanError(err) {
   const m = String(err && (err.message || err.details || err) || '');
   if (/do_butuh_spk/.test(m)) return 'Status DO hanya bisa diisi kalau Status SPK = SPK.';
+  if (/row-level security/i.test(m) && ME && ME.role === 'SALES') return 'Prospek yang sudah di-follow-up tidak bisa dihapus.';
   if (/row-level security/i.test(m) && /lead_pas/.test(m) && ME && ME.jembatan)
     return 'Input prospek PAS baru dibuka setelah pindah dari AppSheet.';
   if (/row-level security|permission denied|42501/i.test(m)) return 'Akun Anda tidak diizinkan melakukan ini.';
@@ -609,6 +612,7 @@ async function ambilData() {
   const me = { id: p.id, nama: p.nama, role: p.role, pt: admin ? 'SEMUA' : p.pt, spv: p.nama_spv || p.nama,
                canAddShn: (admin || p.boleh_tambah) && lihatShn,
                canAddPas: (admin || p.boleh_tambah) && lihatPas && !jembatan,
+               izinAddPas: (admin || p.boleh_tambah) && lihatPas,
                canEdit: admin || p.boleh_edit, hapus, jembatan,
                sales: [...new Set((sales.error ? [] : sales.data || []).map(x => x.nama))] };
 
@@ -633,6 +637,7 @@ async function ambilData() {
     lastFu: ymdhm(lebihBaru(fuMap['PAS|' + r.id], r.tgl_fu)),
     bisaEdit: !jembatan || r.asal === 'web',
     canDel: (r.asal === 'web' || !jembatan) && (hapus === 'SEMUA' || (hapus === 'SENDIRI' && r.input_by === p.id))
+            && !(p.role === 'SALES' && (r.status_data || r.status || r.keterangan || fuMap['PAS|' + r.id]))
   })));
 
   const src = [...new Set(['Google', 'Instagram', 'Facebook', 'Walk In', 'Referensi']
@@ -670,6 +675,7 @@ async function simpanPas(p) {
     unit: kosongJadiNull(p.unit), prospek: kosongJadiNull(p.prospek), kategori: kosongJadiNull(p.kategori),
     keterangan: kosongJadiNull(p.ket)
   };
+  if (ME.role === 'SALES') delete isi.keterangan;      // keterangan diisi SPV saat follow-up
   const res = p.id
     ? await SB.from('lead_pas').update(isi).eq('id', p.id).select('id')
     : await SB.from('lead_pas').insert(isi).select('id');
@@ -745,15 +751,17 @@ function load(json) {
   $('#btnOut').title = `Masuk sebagai ${ME.nama}, role ${ME.role}`;
   render();
 }
-function jenisTambah() {      // form mana yang dibuka tombol Tambah
-  if (CMP === 'PAS') return ME.canAddPas ? 'PAS' : '';
+// form mana yang dibuka tombol Tambah: 'SHN' | 'PAS' | 'PAS_KUNCI' (boleh, tapi masih masa AppSheet) | ''
+function jenisTambah() {
+  const pas = ME.canAddPas ? 'PAS' : ME.izinAddPas ? 'PAS_KUNCI' : '';
+  if (CMP === 'PAS') return pas;
   if (CMP === 'SHN') return ME.canAddShn ? 'SHN' : '';
-  return ME.canAddShn ? 'SHN' : ME.canAddPas ? 'PAS' : '';
+  return ME.canAddShn ? 'SHN' : pas;
 }
 function syncAddBtn() {
   const j = jenisTambah();
   $('#btnAdd').hidden = !j;
-  $('#btnAdd').lastChild.textContent = j === 'PAS' ? ' Tambah prospek' : ' Tambah lead';
+  $('#btnAdd').lastChild.textContent = j.startsWith('PAS') ? ' Tambah prospek' : ' Tambah lead';
 }
 async function refresh(msg) {
   try { load(await api('data')); if (msg) toast(msg); }
@@ -772,6 +780,7 @@ function sel(field, val, list, emptyLabel, disabled, why) {
 }
 
 const RO = 'Akun Anda hanya bisa melihat';
+const isSales = () => ME.role === 'SALES';     // sales: input data saja; follow-up (status & keterangan) oleh SPV
 function badgeProspek(p) {
   const u = up(p);
   if (!u) return '';
@@ -785,7 +794,7 @@ function rowHtml(r) {
   const showAge = ['belum','spk','cek','valid'].includes(raw) && age !== null;
   const ro = !ME.canEdit;
 
-  const ketCell = (ME.canEdit
+  const ketCell = (ME.canEdit && !isSales()
     ? `<div class="ket ${r.ket ? '' : 'nil'}" data-act="ket" tabindex="0" title="Klik untuk mengubah">${r.ket ? esc(r.ket) : 'Tambah keterangan'}</div>`
     : `<div>${r.ket ? esc(r.ket) : '<span class="sub">-</span>'}</div>`) +
     (fuTeks(r) ? `<div class="sub">${fuTeks(r)}</div>` : '');
@@ -810,8 +819,8 @@ function rowHtml(r) {
         ? `<div>${fmt(r.tglKirim)}</div>${showAge ? `<div class="age ${age >= AMBANG ? 'warn' : ''}">${age} hari</div>` : ''}`
         : '<span class="sub">Belum diisi</span>'}</td>
     <td class="c-ket" data-l="Keterangan">${ketCell}</td>
-    <td data-l="${pas ? 'Status Data' : 'Status SPK'}">${st1}</td>
-    <td data-l="${pas ? 'Status' : 'Status DO'}">${st2}</td>
+    ${isSales() ? '' : `<td data-l="${pas ? 'Status Data' : 'Status SPK'}">${st1}</td>
+    <td data-l="${pas ? 'Status' : 'Status DO'}">${st2}</td>`}
     <td class="c-act">
       <button class="ib" data-act="log" aria-label="Riwayat ${esc(r.nama)}" title="Riwayat">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>${ME.canEdit && (!pas || r.bisaEdit) ? `
@@ -854,13 +863,15 @@ function render() {
   renderFilters(BASE);
   const SCOPE = BASE.filter(lolosFilter);
   const ST = stageList();
+  if (isSales()) FILTER = 'all';                 // sales tidak melihat status, jadi tampilkan semua prospeknya
+  $('#pipe').hidden = isSales();
   if (!['all','aktif'].includes(FILTER) && !ST.some(s => s.f === FILTER)) FILTER = 'aktif';
 
   const cnt = { all: SCOPE.length, aktif: SCOPE.filter(isAktif).length };
   ST.forEach(s => cnt[s.f] = 0);
   SCOPE.forEach(r => cnt[stage(r)]++);
   const telat = SCOPE.filter(r => ['belum','cek'].includes(stageRaw(r)) && (days(r.tglKirim) ?? -1) >= AMBANG).length;
-  $('#sum').innerHTML = `${cnt.aktif} lead aktif dari ${SCOPE.length}` + (telat
+  $('#sum').innerHTML = isSales() ? `${SCOPE.length} prospek` : `${cnt.aktif} lead aktif dari ${SCOPE.length}` + (telat
     ? `, <button class="sumlink" data-tg="telat">${telat} belum ada keputusan ≥ ${AMBANG} hari</button>` : '');
 
   const pipe = $('#pipe');
@@ -894,7 +905,7 @@ function render() {
           : ['SPV / Sales', 'Tanggal', 'Status SPK / Data', 'Status DO / Deal'];
   $('#board').innerHTML = `<table>
     <thead><tr><th class="c-no">No</th><th class="c-lead">Lead</th><th>${H[0]}</th><th>Unit</th><th>Source</th>
-      <th>${H[1]}</th><th>Keterangan</th><th>${H[2]}</th><th>${H[3]}</th><th></th></tr></thead>
+      <th>${H[1]}</th><th>Keterangan</th>${isSales() ? '' : `<th>${H[2]}</th><th>${H[3]}</th>`}<th></th></tr></thead>
     <tbody>${list.map(rowHtml).join('')}</tbody></table>`;
 }
 
@@ -1135,6 +1146,7 @@ function openPas(id) {
   isiTipe(r.unit || '');
   P('prospek').value = r.prospek || ''; P('kategori').value = r.kategori || '';
   P('ket').value = r.ket || '';
+  $('#pKetBox').hidden = isSales;
   $('#pMeta').textContent = id ? [r.inputBy && `Diinput oleh ${r.inputBy}`, r.editBy && `terakhir diubah ${r.editBy} (${r.editAt})`]
                                    .filter(Boolean).join(', ') : '';
   $('#pSubmit').textContent = id ? 'Simpan perubahan' : 'Simpan prospek';
@@ -1286,7 +1298,12 @@ function editKet(div) {
 }
 let qt;
 $('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { Q = e.target.value.trim(); render(); }, 150); });
-$('#btnAdd').addEventListener('click', () => jenisTambah() === 'PAS' ? openPas() : openForm());
+$('#btnAdd').addEventListener('click', () => {
+  const j = jenisTambah();
+  if (j === 'PAS') return openPas();
+  if (j === 'SHN') return openForm();
+  if (j === 'PAS_KUNCI') return toast('Input prospek PAS baru dibuka setelah pindah dari AppSheet (fungsi pindahDariAppSheet).', true);
+});
 $('#btnOut').addEventListener('click', async () => {
   await SB.auth.signOut(); TOKEN = ''; MYID = '';
   ROWS = []; CMP = 'all'; BRAND = 'all'; render(); showGate('Anda sudah keluar dari HP ini.');
