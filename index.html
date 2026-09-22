@@ -335,6 +335,7 @@ thead th.c-lead{left:0;z-index:3}
 <datalist id="dlKota"></datalist>
 <div class="toast" id="toast" role="status"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ===================== STATE =====================
 let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[], stData:[], status:[] }, TODAY = '', PT = [];
@@ -481,40 +482,143 @@ function fmt(ymd) {
   return `${+d} ${BLN[+m - 1]} ${y.slice(2)}`;
 }
 
-// ===================== SERVER & PIN =====================
-const TK_KEY = 'leads_token';
-let TOKEN = '';
-try { TOKEN = localStorage.getItem(TK_KEY) || ''; } catch (e) {}
-function setToken(t) { TOKEN = t; try { t ? localStorage.setItem(TK_KEY, t) : localStorage.removeItem(TK_KEY); } catch (e) {} }
+// ===================== SUPABASE & LOGIN =====================
+const SB_URL = 'https://alofhfymbmumlrpbpjfi.supabase.co';
+const SB_KEY = 'sb_publishable_P9irM8Za_3TrSM9Tx7FxhQ_EnHRmhNV';   // publishable: aman di tampilan, dibatasi RLS
+const SB = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+const PERUSAHAAN = [
+  { kode: 'SHN', nama: 'Sumber Harapan',      brand: ['Toyota'] },
+  { kode: 'PAS', nama: 'Perkasa Auto Selasa', brand: ['BYD', 'Hyundai'] }
+];
+const PAS_MULAI = '2026-09-01';
+let TOKEN = '';          // '1' = ada sesi login
+let MYID = '', PROFIL = {};
 
-// ===== ALAMAT API: URL Web app dari Apps Script (Deploy > Manage deployments) =====
-const API_URL = 'https://script.google.com/macros/s/AKfycbwvJhtclImy6pMSPnd0ao9sxYsaqoQ7hszwn_dg8drtq4dJSI3NchnO3MqBi_yC7bga9Q/exec';
-
-// credentials:'omit' = tidak membawa login Google HP → bebas dari bug multi-akun
-async function call(action, payload) {
-  let res, j;
-  try {
-    res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // tanpa preflight CORS
-      body: JSON.stringify({ action, ...payload }),
-      credentials: 'omit',
-      redirect: 'follow'
-    });
-  } catch (e) { throw new Error('Tidak bisa terhubung ke server. Cek koneksi internet.'); }
-  try { j = await res.json(); }
-  catch (e) { throw new Error('Server tidak merespons dengan benar. Pastikan deployment Apps Script aksesnya "Anyone".'); }
-  if (!j.ok) throw new Error(j.error || 'Terjadi kesalahan di server.');
-  return j;
+// nama → email login: "Muhammad Noer" → muhammad.noer@leads.shn
+const emailDari = nama => nama.trim().toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '') + '@leads.shn';
+const hariIni = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+const ymd = iso => iso ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date(iso)) : '';
+const ymdhm = iso => {
+  if (!iso) return '';
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(iso)).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
+};
+const fmtWaktu = iso => { const t = ymdhm(iso); return t ? `${fmt(t.slice(0, 10))} ${t.slice(11)}` : ''; };
+function rapiKontak(v) {
+  const s = String(v ?? '').trim().replace(/[\s-]/g, '').replace(/^\+/, '');
+  if (/^8\d{7,12}$/.test(s)) return '0' + s;
+  if (/^628\d{7,12}$/.test(s)) return '0' + s.slice(2);
+  return s;
 }
-// semua akses data lewat sini: token ikut dikirim, sesi habis → layar PIN
+const kosongJadiNull = v => { const s = String(v ?? '').trim(); return s ? s : null; };
+
+// pesan error database → bahasa Indonesia
+function pesanError(err) {
+  const m = String(err && (err.message || err.details || err) || '');
+  if (/do_butuh_spk/.test(m)) return 'Status DO hanya bisa diisi kalau Status SPK = SPK.';
+  if (/row-level security|permission denied|42501/i.test(m)) return 'Akun Anda tidak diizinkan melakukan ini.';
+  if (/JWT|refresh token|not authenticated/i.test(m)) return 'AUTH: Sesi berakhir, silakan masuk lagi.';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Tidak bisa terhubung ke server. Cek koneksi internet.';
+  return m.replace(/^.*?ERROR:\s*/, '') || 'Terjadi kesalahan.';
+}
+function cek(res) { if (res.error) throw new Error(pesanError(res.error)); return res.data; }
+
+async function ambilData() {
+  const [prof, shn, pas, fu] = await Promise.all([
+    SB.from('profil').select('*'),
+    SB.from('lead_shn').select('*').order('nomor'),
+    SB.from('lead_pas').select('*').order('ts'),
+    SB.rpc('fu_terakhir')
+  ]);
+  const profil = cek(prof);
+  PROFIL = Object.fromEntries(profil.map(p => [p.id, p.nama]));
+  const p = profil.find(x => x.id === MYID);
+  if (!p || !p.aktif) throw new Error('AUTH: Akun belum punya profil atau sudah dinonaktifkan. Hubungi admin.');
+  const admin = p.role === 'ADMIN';
+  const lihatShn = admin || p.pt === 'SEMUA' || p.pt === 'SHN';
+  const lihatPas = admin || p.pt === 'SEMUA' || p.pt === 'PAS';
+  const hapus = admin ? 'SEMUA' : p.boleh_hapus;
+  const me = { id: p.id, nama: p.nama, role: p.role, pt: admin ? 'SEMUA' : p.pt, spv: p.nama_spv || p.nama,
+               canAdd: (admin || p.boleh_tambah) && lihatShn, canEdit: admin || p.boleh_edit, hapus };
+
+  const fuMap = {};
+  (cek(fu) || []).forEach(f => { fuMap[f.pt + '|' + f.lead_id] = f.waktu; });
+  const lebihBaru = (a, b) => !a ? b : !b ? a : (new Date(a) > new Date(b) ? a : b);
+
+  const rows = cek(shn).map(r => ({
+    pt: 'SHN', id: r.id, no: String(r.nomor), brand: r.brand || '', spv: r.spv || '', kota: r.kota || '',
+    nama: r.nama, kontak: r.kontak || '', unit: r.unit || '', ket: r.keterangan || '', source: r.source || '',
+    tglKirim: r.tgl_kirim || '', spk: r.status_spk || '', tglSpk: r.tgl_spk || '', do: r.status_do || '', tglDo: r.tgl_do || '',
+    inputBy: PROFIL[r.input_by] || '', editBy: PROFIL[r.edit_by] || '', editAt: fmtWaktu(r.edit_at),
+    lastFu: ymdhm(fuMap['SHN|' + r.id]),
+    canDel: hapus === 'SEMUA' || (hapus === 'SENDIRI' && r.input_by === p.id)
+  })).concat(cek(pas).map(r => ({
+    pt: 'PAS', id: r.id, no: String((r.baris || 1) - 1), brand: r.brand || '', spv: r.sales || '', kota: r.kota || '',
+    nama: r.nama, kontak: r.kontak || '', unit: r.unit || '', ket: r.keterangan || '', source: r.source || '',
+    tglKirim: ymd(r.ts), prospek: r.prospek || '', tglFu: fmtWaktu(r.tgl_fu), stData: r.status_data || '', status: r.status || '',
+    lastFu: ymdhm(lebihBaru(fuMap['PAS|' + r.id], r.tgl_fu)), canDel: false
+  })));
+
+  const src = [...new Set(['Google', 'Instagram', 'Facebook', 'Walk In', 'Referensi']
+                .concat(rows.filter(r => r.pt === 'SHN').map(r => r.source).filter(Boolean)))];
+  return JSON.stringify({
+    rows, today: hariIni(), me, pasMulai: PAS_MULAI,
+    perusahaan: PERUSAHAAN.filter(x => x.kode === 'SHN' ? lihatShn : lihatPas),
+    opts: { brand: ['Toyota'], source: src, spk: ['SPK', 'Tidak Jadi SPK'], do: ['DO', 'Batal DO'],
+            stData: ['Valid', 'Drop', 'Invalid'], status: ['DEAL', 'CANCEL'] }
+  });
+}
+
+async function simpanShn(p) {
+  const isi = {
+    brand: kosongJadiNull(p.brand) || 'Toyota', spv: kosongJadiNull(p.spv), kota: kosongJadiNull(p.kota),
+    nama: String(p.nama || '').trim(), kontak: kosongJadiNull(rapiKontak(p.kontak)), unit: kosongJadiNull(p.unit),
+    keterangan: kosongJadiNull(p.ket), source: kosongJadiNull(p.source), tgl_kirim: kosongJadiNull(p.tglKirim),
+    status_spk: kosongJadiNull(p.spk), tgl_spk: kosongJadiNull(p.spk) ? kosongJadiNull(p.tglSpk) : null,
+    status_do: kosongJadiNull(p.do),   tgl_do: kosongJadiNull(p.do) ? kosongJadiNull(p.tglDo) : null
+  };
+  if (!isi.nama) throw new Error('Nama leads wajib diisi.');
+  if (isi.keterangan && isi.keterangan.length > 1000) throw new Error('Keterangan maksimal 1000 karakter.');
+  const res = p.id
+    ? await SB.from('lead_shn').update(isi).eq('id', p.id).select('id')
+    : await SB.from('lead_shn').insert(isi).select('id');
+  if (!cek(res).length) throw new Error(p.id ? 'Perubahan tidak tersimpan: lead di luar akses atau akun tidak boleh mengubah.'
+                                             : 'Lead tidak tersimpan: akun tidak boleh menambah lead untuk SPV ini.');
+}
+
+// dipanggil seluruh tampilan; bentuk hasil sama seperti versi Apps Script
 async function api(action, payload = {}) {
-  try { const j = await call(action, { token: TOKEN, ...payload }); return 'data' in j ? j.data : j; }
-  catch (e) {
-    if (e.message.includes('AUTH:')) { setToken(''); showGate(); e.message = 'Sesi berakhir, masukkan PIN lagi.'; }
-    throw e;
+  try {
+    if (action === 'data') return await ambilData();
+    if (action === 'save') { await simpanShn(payload.row); return await ambilData(); }
+    if (action === 'delete') {
+      if (!cek(await SB.from('lead_shn').delete().eq('id', payload.id).select('id')).length)
+        throw new Error(ME.hapus === 'SENDIRI' ? 'Anda hanya bisa menghapus lead yang Anda input sendiri.'
+                                               : 'Akun Anda tidak diizinkan menghapus lead.');
+      return await ambilData();
+    }
+    if (action === 'savePas') {
+      const kolom = { stData: 'status_data', status: 'status', ket: 'keterangan' }[payload.field];
+      if (!kolom) throw new Error('Kolom ini tidak bisa diubah.');
+      const res = await SB.from('lead_pas').update({ [kolom]: kosongJadiNull(payload.value) }).eq('id', payload.id).select('id');
+      if (!cek(res).length) throw new Error('Perubahan tidak tersimpan: akun tidak boleh mengubah data PAS.');
+      return await ambilData();
+    }
+    if (action === 'log') {
+      const d = cek(await SB.from('riwayat').select('keterangan,oleh,sumber,waktu')
+                          .eq('pt', payload.pt).eq('lead_id', payload.id).order('waktu', { ascending: false }).limit(200));
+      return { log: d.map(x => ({ waktu: fmtWaktu(x.waktu), kolom: 'Keterangan', lama: '', baru: x.keterangan,
+                                 oleh: x.oleh, sumber: x.sumber })) };
+    }
+    throw new Error('Aksi tidak dikenal.');
+  } catch (e) {
+    const m = pesanError(e);
+    if (m.startsWith('AUTH:')) { await SB.auth.signOut(); TOKEN = ''; showGate(m.slice(5).trim()); }
+    throw new Error(m.replace(/^AUTH:\s*/, ''));
   }
 }
+
 function showGate(msg) {
   $('#gErr').textContent = msg || '';
   $('#gPin').value = '';
@@ -528,7 +632,11 @@ $('#gForm').addEventListener('submit', async e => {
   if (!nama || !pin) { $('#gErr').textContent = 'Isi nama dan PIN.'; return; }
   const b = $('#gBtn'); b.disabled = true; $('#gErr').textContent = '';
   try {
-    setToken((await call('login', { nama, pin })).token);
+    const { data, error } = await SB.auth.signInWithPassword({ email: emailDari(nama), password: pin });
+    if (error) throw new Error(/invalid login|invalid credentials/i.test(error.message) ? 'Nama atau PIN salah.'
+                             : /rate|too many/i.test(error.message) ? 'Terlalu banyak percobaan. Tunggu beberapa menit.'
+                             : pesanError(error));
+    MYID = data.user.id; TOKEN = '1';
     try { localStorage.setItem('leads_nama', nama); } catch (e) {}
     $('#gate').classList.remove('open');
     await refresh();
@@ -737,7 +845,7 @@ async function openLog(tr) {
   if (!r) return;
   $('#lTitle').textContent = `Riwayat: ${r.nama}`;
   $('#lHead').textContent = r.pt === 'PAS'
-    ? 'Riwayat keterangan. Catatan dari AppSheet masuk paling lambat 10 menit setelah disimpan.'
+    ? 'Riwayat keterangan. Catatan dari AppSheet masuk paling lambat 5 menit setelah disimpan.'
     : 'Riwayat keterangan.';
   $('#lBody').innerHTML = '<div class="empty" style="padding:30px">Memuat riwayat…</div>';
   openOv('#ovLog');
@@ -952,12 +1060,17 @@ function editKet(div) {
 let qt;
 $('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { Q = e.target.value.trim(); render(); }, 150); });
 $('#btnAdd').addEventListener('click', () => openForm());
-$('#btnOut').addEventListener('click', () => {
-  setToken(''); ROWS = []; CMP = 'all'; BRAND = 'all'; render(); showGate('Anda sudah keluar dari HP ini.');
+$('#btnOut').addEventListener('click', async () => {
+  await SB.auth.signOut(); TOKEN = ''; MYID = '';
+  ROWS = []; CMP = 'all'; BRAND = 'all'; render(); showGate('Anda sudah keluar dari HP ini.');
 });
-$('#btnReload').addEventListener('click', () => refresh('Data diperbarui dari sheet'));
+$('#btnReload').addEventListener('click', () => refresh('Data diperbarui'));
 
-if (TOKEN) refresh(); else showGate();
+(async () => {
+  const { data } = await SB.auth.getSession();
+  if (data && data.session) { MYID = data.session.user.id; TOKEN = '1'; refresh(); }
+  else showGate();
+})();
 </script>
 </body>
 </html>
