@@ -171,6 +171,11 @@ thead th.c-lead{left:0;z-index:3}
 .gate label{display:block;font-size:13px;color:#C9D5E6;margin:12px 0 5px}
 .gate input{width:100%;height:48px;border:0;border-radius:6px;padding:0 14px;font-size:17px;color:var(--ink)}
 .gate #gPin{font-size:22px;letter-spacing:.3em}
+.sec{grid-column:1/-1;font-weight:700;font-size:13px;color:var(--navy);margin:6px 0 -4px;
+  padding-top:10px;border-top:1px solid var(--line)}
+.sec:first-of-type{border-top:0;padding-top:0}
+.info-area{grid-column:1/-1;font-size:12.5px;color:var(--muted);margin:-6px 0 0}
+.f .req{color:var(--warn)}
 .fmeta{grid-column:1/-1;font-size:12px;color:var(--muted);margin:0}
 .gate .btn{width:100%;justify-content:center;margin-top:12px;height:46px}
 .gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
@@ -211,6 +216,8 @@ thead th.c-lead{left:0;z-index:3}
   td.c-lead,th.c-lead{min-width:132px;max-width:150px}
   .c-ket{min-width:190px}
   .mb,.grp{grid-template-columns:1fr}
+  .ov.full{padding:0}
+  .ov.full .modal{max-width:none;min-height:100%;border-radius:0}
   .fbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .fbar > *{flex:0 0 auto}
 }
@@ -289,6 +296,50 @@ thead th.c-lead{left:0;z-index:3}
   </form>
 </div>
 
+<!-- Form prospek PAS -->
+<div class="ov full" id="ovPas" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <form class="modal" id="pForm" novalidate>
+    <div class="mh">
+      <h2 id="pTitle">Tambah prospek PAS</h2>
+      <button type="button" class="ib" data-close aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="mb">
+      <div class="err" id="pErr"></div>
+      <p class="sec">Prospek</p>
+      <div class="f full"><label for="p_sales">Nama Sales <span class="req">*</span></label><select id="p_sales"></select></div>
+      <div class="f full"><label for="p_nama">Nama Prospek <span class="req">*</span></label><input id="p_nama" autocomplete="off"></div>
+      <div class="f full"><label for="p_kontak">No. HP Prospek <span class="req">*</span></label>
+        <input id="p_kontak" inputmode="tel" autocomplete="off" placeholder="08xxxxxxxxxx"><div class="hint" id="pKHint"></div></div>
+
+      <p class="sec">Alamat <span class="sub" style="font-weight:400">— pilih dari daftar, atau ketik sendiri kalau tidak ada</span></p>
+      <div class="f"><label for="p_prov">Provinsi</label><input id="p_prov" list="dlProv" autocomplete="off" placeholder="Pilih atau ketik"></div>
+      <div class="f"><label for="p_kota">Kabupaten / Kota</label><input id="p_kota" list="dlKab" autocomplete="off" placeholder="Pilih atau ketik"></div>
+      <div class="f"><label for="p_kec">Kecamatan</label><input id="p_kec" list="dlKec" autocomplete="off" placeholder="Pilih atau ketik"></div>
+      <div class="f"><label for="p_kel">Kelurahan / Desa</label><input id="p_kel" list="dlKel" autocomplete="off" placeholder="Pilih atau ketik"></div>
+      <p class="info-area" id="pArea"></p>
+
+      <p class="sec">Minat</p>
+      <div class="f"><label for="p_kerja">Bidang Pekerjaan</label><select id="p_kerja"></select></div>
+      <div class="f" id="pKerjaLainBox" hidden><label for="p_kerjaLain">Pekerjaan lainnya</label><input id="p_kerjaLain" autocomplete="off"></div>
+      <div class="f"><label for="p_source">Sumber Prospek</label><select id="p_source"></select></div>
+      <div class="f full"><label for="p_unit">Type Mobil <span class="req">*</span></label><select id="p_unit"></select></div>
+      <div class="f"><label for="p_prospek">Status Prospek <span class="req">*</span></label>
+        <select id="p_prospek"><option value="">Pilih</option><option>Hot</option><option>Medium</option><option>Low</option></select></div>
+      <div class="f"><label for="p_kategori">Kategori Pembelian <span class="req">*</span></label>
+        <select id="p_kategori"><option value="">Pilih</option><option>First Buyer</option><option>Additional</option><option>Replacement</option></select></div>
+      <div class="f full"><label for="p_ket">Keterangan / catatan follow-up</label><textarea id="p_ket" placeholder="Opsional"></textarea></div>
+      <p class="fmeta" id="pMeta"></p>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn btn-line" data-close>Batal</button>
+      <button type="submit" class="btn btn-navy" id="pSubmit">Simpan prospek</button>
+    </div>
+  </form>
+</div>
+<datalist id="dlProv"></datalist><datalist id="dlKab"></datalist><datalist id="dlKec"></datalist><datalist id="dlKel"></datalist>
+
 <!-- Riwayat -->
 <div class="ov" id="ovLog" role="dialog" aria-modal="true" aria-labelledby="lTitle">
   <div class="modal">
@@ -339,7 +390,7 @@ thead th.c-lead{left:0;z-index:3}
 <script>
 // ===================== STATE =====================
 let ROWS = [], OPTS = { brand:[], source:[], spk:[], do:[], stData:[], status:[] }, TODAY = '', PT = [];
-let ME = { canAdd:false, canEdit:false };
+let ME = { canAddShn:false, canAddPas:false, canEdit:false, sales:[] };
 let FILTER = 'aktif', Q = '', EDIT_ID = null, DEL_ID = null;
 let CMP = 'all', BRAND = 'all';   // CMP: 'all' | 'SHN' | 'PAS'
 const AMBANG = 14;   // ≥ 14 hari ditandai merah, sama dengan laporan Telegram
@@ -517,6 +568,8 @@ const kosongJadiNull = v => { const s = String(v ?? '').trim(); return s ? s : n
 function pesanError(err) {
   const m = String(err && (err.message || err.details || err) || '');
   if (/do_butuh_spk/.test(m)) return 'Status DO hanya bisa diisi kalau Status SPK = SPK.';
+  if (/row-level security/i.test(m) && /lead_pas/.test(m) && ME && ME.jembatan)
+    return 'Input prospek PAS baru dibuka setelah pindah dari AppSheet.';
   if (/row-level security|permission denied|42501/i.test(m)) return 'Akun Anda tidak diizinkan melakukan ini.';
   if (/JWT|refresh token|not authenticated/i.test(m)) return 'AUTH: Sesi berakhir, silakan masuk lagi.';
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Tidak bisa terhubung ke server. Cek koneksi internet.';
@@ -524,23 +577,40 @@ function pesanError(err) {
 }
 function cek(res) { if (res.error) throw new Error(pesanError(res.error)); return res.data; }
 
+let MASTER = null;    // area, tipe, pilihan — dimuat sekali
+async function ambilMaster() {
+  const [area, tipe, pil] = await Promise.all([
+    SB.from('master_area').select('provinsi,kab_kota,kecamatan,kelurahan,kode_pos,ring,pic_area').limit(5000),
+    SB.from('master_tipe').select('brand,model,tipe,urutan').order('urutan'),
+    SB.from('master_pilihan').select('jenis,nilai,urutan').order('urutan')
+  ]);
+  MASTER = { area: cek(area), tipe: cek(tipe), pilihan: cek(pil) };
+}
+
 async function ambilData() {
-  const [prof, shn, pas, fu] = await Promise.all([
+  if (!MASTER) await ambilMaster();
+  const [prof, shn, pas, fu, atur, sales] = await Promise.all([
     SB.from('profil').select('*'),
     SB.from('lead_shn').select('*').order('nomor'),
     SB.from('lead_pas').select('*').order('ts'),
-    SB.rpc('fu_terakhir')
+    SB.rpc('fu_terakhir'),
+    SB.from('pengaturan').select('kunci,nilai'),
+    SB.rpc('daftar_sales')
   ]);
+  const jembatan = (cek(atur) || []).some(x => x.kunci === 'jembatan_sheet' && x.nilai === 'ya');
   const profil = cek(prof);
   PROFIL = Object.fromEntries(profil.map(p => [p.id, p.nama]));
   const p = profil.find(x => x.id === MYID);
   if (!p || !p.aktif) throw new Error('AUTH: Akun belum punya profil atau sudah dinonaktifkan. Hubungi admin.');
   const admin = p.role === 'ADMIN';
-  const lihatShn = admin || p.pt === 'SEMUA' || p.pt === 'SHN';
+  const lihatShn = admin || (p.role !== 'SALES' && (p.pt === 'SEMUA' || p.pt === 'SHN'));
   const lihatPas = admin || p.pt === 'SEMUA' || p.pt === 'PAS';
   const hapus = admin ? 'SEMUA' : p.boleh_hapus;
   const me = { id: p.id, nama: p.nama, role: p.role, pt: admin ? 'SEMUA' : p.pt, spv: p.nama_spv || p.nama,
-               canAdd: (admin || p.boleh_tambah) && lihatShn, canEdit: admin || p.boleh_edit, hapus };
+               canAddShn: (admin || p.boleh_tambah) && lihatShn,
+               canAddPas: (admin || p.boleh_tambah) && lihatPas && !jembatan,
+               canEdit: admin || p.boleh_edit, hapus, jembatan,
+               sales: [...new Set((sales.error ? [] : sales.data || []).map(x => x.nama))] };
 
   const fuMap = {};
   (cek(fu) || []).forEach(f => { fuMap[f.pt + '|' + f.lead_id] = f.waktu; });
@@ -557,7 +627,12 @@ async function ambilData() {
     pt: 'PAS', id: r.id, no: String((r.baris || 1) - 1), brand: r.brand || '', spv: r.sales || '', kota: r.kota || '',
     nama: r.nama, kontak: r.kontak || '', unit: r.unit || '', ket: r.keterangan || '', source: r.source || '',
     tglKirim: ymd(r.ts), prospek: r.prospek || '', tglFu: fmtWaktu(r.tgl_fu), stData: r.status_data || '', status: r.status || '',
-    lastFu: ymdhm(lebihBaru(fuMap['PAS|' + r.id], r.tgl_fu)), canDel: false
+    provinsi: r.provinsi || '', kecamatan: r.kecamatan || '', kelurahan: r.kelurahan || '', pekerjaan: r.pekerjaan || '',
+    kategori: r.kategori || '', kodePos: r.kode_pos || '', ring: r.ring || '', pic: r.pic_area || '', asal: r.asal,
+    inputBy: PROFIL[r.input_by] || '', editBy: PROFIL[r.diubah_oleh] || '', editAt: fmtWaktu(r.diubah_pada),
+    lastFu: ymdhm(lebihBaru(fuMap['PAS|' + r.id], r.tgl_fu)),
+    bisaEdit: !jembatan || r.asal === 'web',
+    canDel: (r.asal === 'web' || !jembatan) && (hapus === 'SEMUA' || (hapus === 'SENDIRI' && r.input_by === p.id))
   })));
 
   const src = [...new Set(['Google', 'Instagram', 'Facebook', 'Walk In', 'Referensi']
@@ -587,13 +662,30 @@ async function simpanShn(p) {
                                              : 'Lead tidak tersimpan: akun tidak boleh menambah lead untuk SPV ini.');
 }
 
+async function simpanPas(p) {
+  const isi = {
+    sales: kosongJadiNull(p.sales), nama: String(p.nama || '').trim(), kontak: kosongJadiNull(rapiKontak(p.kontak)),
+    provinsi: kosongJadiNull(p.provinsi), kota: kosongJadiNull(p.kota), kecamatan: kosongJadiNull(p.kecamatan),
+    kelurahan: kosongJadiNull(p.kelurahan), pekerjaan: kosongJadiNull(p.pekerjaan), source: kosongJadiNull(p.source),
+    unit: kosongJadiNull(p.unit), prospek: kosongJadiNull(p.prospek), kategori: kosongJadiNull(p.kategori),
+    keterangan: kosongJadiNull(p.ket)
+  };
+  const res = p.id
+    ? await SB.from('lead_pas').update(isi).eq('id', p.id).select('id')
+    : await SB.from('lead_pas').insert(isi).select('id');
+  if (!cek(res).length) throw new Error(p.id ? 'Perubahan tidak tersimpan: prospek di luar akses atau akun tidak boleh mengubah.'
+                                             : 'Prospek tidak tersimpan: akun tidak boleh menambah prospek.');
+}
+
 // dipanggil seluruh tampilan; bentuk hasil sama seperti versi Apps Script
 async function api(action, payload = {}) {
   try {
     if (action === 'data') return await ambilData();
     if (action === 'save') { await simpanShn(payload.row); return await ambilData(); }
+    if (action === 'savePasLead') { await simpanPas(payload.row); return await ambilData(); }
     if (action === 'delete') {
-      if (!cek(await SB.from('lead_shn').delete().eq('id', payload.id).select('id')).length)
+      const tabel = payload.pt === 'PAS' ? 'lead_pas' : 'lead_shn';
+      if (!cek(await SB.from(tabel).delete().eq('id', payload.id).select('id')).length)
         throw new Error(ME.hapus === 'SENDIRI' ? 'Anda hanya bisa menghapus lead yang Anda input sendiri.'
                                                : 'Akun Anda tidak diizinkan menghapus lead.');
       return await ambilData();
@@ -653,7 +745,16 @@ function load(json) {
   $('#btnOut').title = `Masuk sebagai ${ME.nama}, role ${ME.role}`;
   render();
 }
-function syncAddBtn() { $('#btnAdd').hidden = !ME.canAdd || CMP === 'PAS'; }
+function jenisTambah() {      // form mana yang dibuka tombol Tambah
+  if (CMP === 'PAS') return ME.canAddPas ? 'PAS' : '';
+  if (CMP === 'SHN') return ME.canAddShn ? 'SHN' : '';
+  return ME.canAddShn ? 'SHN' : ME.canAddPas ? 'PAS' : '';
+}
+function syncAddBtn() {
+  const j = jenisTambah();
+  $('#btnAdd').hidden = !j;
+  $('#btnAdd').lastChild.textContent = j === 'PAS' ? ' Tambah prospek' : ' Tambah lead';
+}
 async function refresh(msg) {
   try { load(await api('data')); if (msg) toast(msg); }
   catch (e) { if (!TOKEN) return; $('#board').innerHTML = `<div class="empty">Gagal memuat data: ${esc(e.message)}<br><button class="btn btn-line" onclick="refresh()">Coba lagi</button></div>`; }
@@ -713,9 +814,9 @@ function rowHtml(r) {
     <td data-l="${pas ? 'Status' : 'Status DO'}">${st2}</td>
     <td class="c-act">
       <button class="ib" data-act="log" aria-label="Riwayat ${esc(r.nama)}" title="Riwayat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>${!pas && ME.canEdit ? `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>${ME.canEdit && (!pas || r.bisaEdit) ? `
       <button class="ib" data-act="edit" aria-label="Edit ${esc(r.nama)}" title="Edit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>` : ''}${!pas && r.canDel ? `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>` : ''}${r.canDel ? `
       <button class="ib del" data-act="del" aria-label="Hapus ${esc(r.nama)}" title="Hapus">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}
     </td>
@@ -724,6 +825,7 @@ function rowHtml(r) {
 
 function renderCompany() {
   if (CMP !== 'all' && !PT.some(p => p.kode === CMP)) CMP = PT.length === 1 ? PT[0].kode : 'all';
+  syncAddBtn();
   const tabs = (PT.length > 1 ? [{ k:'all', nm:'Semua perusahaan', n:ROWS.length }] : [])
     .concat(PT.map(p => ({ k:p.kode, nm:p.nama, n:ROWS.filter(r => r.pt === p.kode).length })));
   $('#cmp').innerHTML = tabs.map(t =>
@@ -946,19 +1048,143 @@ F('do').addEventListener('change', () => syncStatus('do'));
 F('kontak').addEventListener('input', checkKontak);
 F('brand').addEventListener('change', syncPt);
 
+// ===================== FORM PROSPEK PAS =====================
+const P = k => $('#p_' + k);
+let PAS_ID = null;
+const uq = arr => [...new Set(arr.filter(Boolean))];
+const samaTeks = (a, b) => String(a || '').trim().toUpperCase() === String(b || '').trim().toUpperCase();
+const opsiDL = arr => arr.map(v => `<option value="${esc(v)}">`).join('');
+
+function isiDatalistArea() {
+  const A = MASTER.area;
+  const prov = P('prov').value, kab = P('kota').value, kec = P('kec').value;
+  $('#dlProv').innerHTML = opsiDL(uq(A.map(a => a.provinsi)));
+  $('#dlKab').innerHTML  = opsiDL(uq(A.filter(a => samaTeks(a.provinsi, prov)).map(a => a.kab_kota)));
+  $('#dlKec').innerHTML  = opsiDL(uq(A.filter(a => samaTeks(a.provinsi, prov) && samaTeks(a.kab_kota, kab)).map(a => a.kecamatan)));
+  $('#dlKel').innerHTML  = opsiDL(uq(A.filter(a => samaTeks(a.provinsi, prov) && samaTeks(a.kab_kota, kab)
+                                                  && samaTeks(a.kecamatan, kec)).map(a => a.kelurahan)));
+  const hit = A.find(a => samaTeks(a.provinsi, prov) && samaTeks(a.kab_kota, kab) && samaTeks(a.kecamatan, kec)
+                         && samaTeks(a.kelurahan, P('kel').value));
+  $('#pArea').textContent = hit ? `Kode pos ${hit.kode_pos || '-'}, ${hit.ring || '-'}, PIC ${hit.pic_area || '-'}`
+                          : (P('kel').value ? 'Alamat di luar daftar area, diisi manual.' : '');
+}
+// pilihan tingkat atas berubah → kosongkan tingkat di bawahnya
+[['prov', ['kota', 'kec', 'kel']], ['kota', ['kec', 'kel']], ['kec', ['kel']], ['kel', []]].forEach(([k, bawah]) => {
+  let awal = '';
+  P(k).addEventListener('focus', () => { awal = P(k).value; });
+  P(k).addEventListener('change', () => {
+    if (!samaTeks(awal, P(k).value)) bawah.forEach(b => { P(b).value = ''; });
+    awal = P(k).value; isiDatalistArea();
+  });
+  P(k).addEventListener('input', isiDatalistArea);
+});
+
+function isiSelect(el, items, kosong, nilai, lainnya) {
+  const list = items.slice();
+  if (nilai && !list.includes(nilai) && !lainnya) list.push(nilai);
+  el.innerHTML = `<option value="">${kosong}</option>` + list.map(v => `<option ${v === nilai ? 'selected' : ''}>${esc(v)}</option>`).join('') +
+    (lainnya ? `<option value="__lain" ${nilai && !items.includes(nilai) ? 'selected' : ''}>Lainnya (isi sendiri)</option>` : '');
+}
+function isiTipe(nilai) {
+  const grup = {};
+  MASTER.tipe.forEach(t => { (grup[t.brand + ' — ' + t.model] = grup[t.brand + ' — ' + t.model] || []).push(t.tipe); });
+  const ada = MASTER.tipe.some(t => t.tipe === nilai);
+  P('unit').innerHTML = '<option value="">Pilih type</option>' +
+    (nilai && !ada ? `<option selected>${esc(nilai)}</option>` : '') +
+    Object.entries(grup).map(([g, arr]) => `<optgroup label="${esc(g)}">${arr.map(v =>
+      `<option ${v === nilai ? 'selected' : ''}>${esc(v)}</option>`).join('')}</optgroup>`).join('');
+}
+function syncKerja() { $('#pKerjaLainBox').hidden = P('kerja').value !== '__lain'; }
+P('kerja').addEventListener('change', () => { syncKerja(); if (P('kerja').value === '__lain') P('kerjaLain').focus(); });
+
+let cekHpT;
+P('kontak').addEventListener('input', () => {
+  clearTimeout(cekHpT);
+  const h = $('#pKHint'), v = rapiKontak(P('kontak').value);
+  h.classList.remove('bad'); h.textContent = '';
+  if (!v) return;
+  if (!/^08\d{8,11}$/.test(v)) { h.textContent = 'Format: diawali 08, 10–13 digit.'; h.classList.add('bad'); return; }
+  cekHpT = setTimeout(async () => {
+    const { data } = await SB.rpc('kontak_terdaftar', { no_hp: v, kecuali: PAS_ID });
+    if (data) { h.textContent = 'Nomor ini sudah terdaftar sebagai prospek. Pastikan bukan data dobel.'; h.classList.add('bad'); }
+  }, 400);
+});
+
+function openPas(id) {
+  PAS_ID = id || null;
+  const r = id ? ROWS.find(x => x.id === id && x.pt === 'PAS') : {};
+  if (id && !r) return;
+  $('#pTitle').textContent = id ? `Edit prospek: ${r.nama}` : 'Tambah prospek PAS';
+  $('#pErr').classList.remove('show');
+  const pilih = j => MASTER.pilihan.filter(x => x.jenis === j).map(x => x.nilai);
+
+  // nama sales: sales → namanya sendiri (terkunci); lainnya → pilih
+  const isSales = ME.role === 'SALES';
+  const daftar = uq(ME.sales.concat(ROWS.filter(x => x.pt === 'PAS').map(x => x.spv))).sort();
+  if (isSales) { P('sales').innerHTML = `<option>${esc(ME.nama)}</option>`; P('sales').disabled = true; }
+  else { isiSelect(P('sales'), daftar, 'Pilih sales', r.spv || ''); P('sales').disabled = false; }
+
+  P('nama').value = r.nama || ''; P('kontak').value = r.kontak || ''; $('#pKHint').textContent = '';
+  P('prov').value = id ? (r.provinsi || '') : 'Kalimantan Utara';
+  P('kota').value = r.kota || ''; P('kec').value = r.kecamatan || ''; P('kel').value = r.kelurahan || '';
+  const kerja = pilih('pekerjaan');
+  isiSelect(P('kerja'), kerja, 'Pilih pekerjaan', r.pekerjaan || '', true);
+  P('kerjaLain').value = r.pekerjaan && !kerja.includes(r.pekerjaan) ? r.pekerjaan : '';
+  syncKerja();
+  isiSelect(P('source'), pilih('sumber'), 'Pilih sumber', r.source || '');
+  isiTipe(r.unit || '');
+  P('prospek').value = r.prospek || ''; P('kategori').value = r.kategori || '';
+  P('ket').value = r.ket || '';
+  $('#pMeta').textContent = id ? [r.inputBy && `Diinput oleh ${r.inputBy}`, r.editBy && `terakhir diubah ${r.editBy} (${r.editAt})`]
+                                   .filter(Boolean).join(', ') : '';
+  $('#pSubmit').textContent = id ? 'Simpan perubahan' : 'Simpan prospek';
+  isiDatalistArea();
+  openOv('#ovPas');
+  setTimeout(() => (isSales || P('sales').value ? P('nama') : P('sales')).focus(), 30);
+}
+
+$('#pForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = $('#pErr');
+  const tampilErr = (m, el) => { err.textContent = m; err.classList.add('show'); if (el) el.focus(); };
+  const kerja = P('kerja').value === '__lain' ? P('kerjaLain').value.trim() : P('kerja').value;
+  const row = {
+    id: PAS_ID, sales: P('sales').value, nama: P('nama').value.trim(), kontak: rapiKontak(P('kontak').value),
+    provinsi: P('prov').value.trim(), kota: P('kota').value.trim(), kecamatan: P('kec').value.trim(), kelurahan: P('kel').value.trim(),
+    pekerjaan: kerja, source: P('source').value, unit: P('unit').value, prospek: P('prospek').value,
+    kategori: P('kategori').value, ket: P('ket').value.trim()
+  };
+  if (!row.sales) return tampilErr('Pilih nama sales.', P('sales'));
+  if (!row.nama) return tampilErr('Nama prospek wajib diisi.', P('nama'));
+  if (!/^08\d{8,11}$/.test(row.kontak)) return tampilErr('No. HP harus diawali 08 dan berisi 10–13 digit.', P('kontak'));
+  if (!row.unit) return tampilErr('Pilih type mobil.', P('unit'));
+  if (!row.prospek) return tampilErr('Pilih status prospek.', P('prospek'));
+  if (!row.kategori) return tampilErr('Pilih kategori pembelian.', P('kategori'));
+  if (P('kerja').value === '__lain' && !kerja) return tampilErr('Isi pekerjaan lainnya.', P('kerjaLain'));
+
+  const b = $('#pSubmit'); b.disabled = true;
+  try {
+    load(await api('savePasLead', { row }));
+    closeOv('#ovPas');
+    toast(PAS_ID ? `Perubahan ${row.nama} disimpan` : `${row.nama} ditambahkan`);
+  } catch (ex) { tampilErr(ex.message); }
+  finally { b.disabled = false; }
+});
+
 // ===================== HAPUS =====================
-function openDel(id) {
-  const r = ROWS.find(x => x.id === id && x.pt === 'SHN');
+let DEL_PT = 'SHN';
+function openDel(id, pt = 'SHN') {
+  const r = ROWS.find(x => x.id === id && x.pt === pt);
   if (!r) return;
-  DEL_ID = id;
-  $('#dText').innerHTML = `Lead <b>${esc(r.nama)}</b>${r.kontak ? ` (${esc(r.kontak)})` : ''} akan dihapus beserta barisnya di sheet. Tindakan ini tidak bisa dibatalkan.`;
+  DEL_ID = id; DEL_PT = pt;
+  $('#dText').innerHTML = `${pt === 'PAS' ? 'Prospek' : 'Lead'} <b>${esc(r.nama)}</b>${r.kontak ? ` (${esc(r.kontak)})` : ''} akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`;
   openOv('#ovDel');
   setTimeout(() => $('#dOk').focus(), 30);
 }
 $('#dOk').addEventListener('click', async () => {
   const b = $('#dOk'); b.disabled = true;
-  const nama = (ROWS.find(x => x.id === DEL_ID) || {}).nama || 'Lead';
-  try { load(await api('delete', { id: DEL_ID })); closeOv('#ovDel'); toast(`${nama} dihapus`); }
+  const nama = (ROWS.find(x => x.id === DEL_ID && x.pt === DEL_PT) || {}).nama || 'Lead';
+  try { load(await api('delete', { id: DEL_ID, pt: DEL_PT })); closeOv('#ovDel'); toast(`${nama} dihapus`); }
   catch (e) { toast(e.message, true); }
   finally { b.disabled = false; }
 });
@@ -1019,7 +1245,8 @@ $('#board').addEventListener('click', e => {
   const tr = b.closest('tr'), id = tr.dataset.id;
   if (b.dataset.act === 'log') return openLog(tr);
   if (b.dataset.act === 'ket') return editKet(b);
-  b.dataset.act === 'edit' ? openForm(id) : openDel(id);
+  if (b.dataset.act === 'edit') return tr.dataset.pt === 'PAS' ? openPas(id) : openForm(id);
+  openDel(id, tr.dataset.pt);
 });
 $('#board').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('.ket')) { e.preventDefault(); editKet(e.target); }
@@ -1059,7 +1286,7 @@ function editKet(div) {
 }
 let qt;
 $('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { Q = e.target.value.trim(); render(); }, 150); });
-$('#btnAdd').addEventListener('click', () => openForm());
+$('#btnAdd').addEventListener('click', () => jenisTambah() === 'PAS' ? openPas() : openForm());
 $('#btnOut').addEventListener('click', async () => {
   await SB.auth.signOut(); TOKEN = ''; MYID = '';
   ROWS = []; CMP = 'all'; BRAND = 'all'; render(); showGate('Anda sudah keluar dari HP ini.');
