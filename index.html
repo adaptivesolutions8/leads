@@ -240,8 +240,14 @@ thead th.c-lead{left:0;z-index:3}
   .mb,.grp{grid-template-columns:1fr}
   .ov.full{padding:0}
   .ov.full .modal{max-width:none;min-height:100%;border-radius:0}
-  .fbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-  .fbar > *{flex:0 0 auto}
+  .fbar,.fk-bar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .fbar > *,.fk-bar > *{flex:0 0 auto}
+  .fk-grid{grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13px}
+  .fk-grid > div{overflow-wrap:anywhere}
+  .fk-kartu{padding:11px 12px}
+  .fk-h b{font-size:14.5px}
+  .fk-seri{overflow-wrap:anywhere}
+  .top .btn{padding:0 11px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
