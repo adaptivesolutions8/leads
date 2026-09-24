@@ -181,6 +181,27 @@ thead th.c-lead{left:0;z-index:3}
 .gate .btn{width:100%;justify-content:center;margin-top:12px;height:46px}
 .gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
 
+/* ---------- cek faktur ---------- */
+.fk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:14px}
+.fk-bar select{height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:0 8px;font-size:13px}
+.fk-kartu{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;
+  box-shadow:inset 3px 0 0 var(--c,var(--line))}
+.fk-kartu.selesai{opacity:.6}
+.fk-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.fk-h b{font-size:15px}
+.fk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px 16px;margin-top:8px;font-size:13.5px}
+.fk-grid div span{color:var(--muted)}
+.fk-seri{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--muted);margin-top:4px}
+.fk-akhir{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.fk-akhir .sub{margin-right:auto}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px}
+.tag.CHECK{background:#FBECEA;color:var(--batal)}
+.tag.BAWAH{background:#FDF3E1;color:#9A6A0F}
+.tag.KURANG{background:#EEF1F5;color:var(--muted)}
+.tag.OKE{background:#E7F3F1;color:var(--spk)}
+.tag.CASH{background:#EDF2FB;color:var(--do)}
+.bunga{font-weight:700}
+
 /* ---------- riwayat ---------- */
 .nm-btn{all:unset;font-weight:600;cursor:pointer;border-radius:3px}
 .nm-btn:hover{text-decoration:underline}
@@ -241,6 +262,7 @@ thead th.c-lead{left:0;z-index:3}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
       Muat ulang
     </button>
+    <button class="btn btn-ghost" id="btnFaktur" hidden title="Cek faktur penjualan dari Accurate">Cek Faktur</button>
     <button class="btn btn-ghost" id="btnOut" title="Keluar dari HP ini">Keluar</button>
     <button class="btn btn-primary" id="btnAdd">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
@@ -250,12 +272,41 @@ thead th.c-lead{left:0;z-index:3}
   <nav class="cmp" id="cmp" aria-label="Pilih perusahaan"></nav>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="viewLeads">
   <div class="brands" id="brands" hidden></div>
   <div class="fbar" id="fbar" role="group" aria-label="Filter"></div>
   <nav class="pipe" id="pipe" aria-label="Filter status"></nav>
-  <div class="board" id="board"><div class="loading">Memuat data dari sheet…</div></div>
+  <div class="board" id="board"><div class="loading">Memuat data…</div></div>
 </main>
+
+<main class="wrap" id="viewFaktur" hidden>
+  <div class="fk-bar" id="fkBar"></div>
+  <div id="fkBoard"><div class="loading">Memuat faktur…</div></div>
+</main>
+
+<!-- Tandai faktur -->
+<div class="ov" id="ovFk" role="dialog" aria-modal="true" aria-labelledby="fkTitle">
+  <form class="modal sm" id="fkForm" novalidate>
+    <div class="mh"><h2 id="fkTitle">Tandai faktur</h2>
+      <button type="button" class="ib" data-close aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="mb" style="grid-template-columns:1fr">
+      <div class="err" id="fkErr"></div>
+      <p class="sub" id="fkInfo" style="margin:0"></p>
+      <div class="f"><label for="fk_status">Status</label>
+        <select id="fk_status"><option value="SELESAI">Selesai diperiksa</option>
+          <option value="DIKEMBALIKAN">Dikembalikan ke cabang</option>
+          <option value="BARU">Kembalikan ke daftar periksa</option></select></div>
+      <div class="f"><label for="fk_catatan">Catatan</label><textarea id="fk_catatan" placeholder="Opsional"></textarea></div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn btn-line" data-close>Batal</button>
+      <button type="submit" class="btn btn-navy" id="fkSimpan">Simpan</button>
+    </div>
+  </form>
+</div>
 
 <!-- Form tambah / edit -->
 <div class="ov" id="ovForm" role="dialog" aria-modal="true" aria-labelledby="fTitle">
@@ -747,6 +798,7 @@ function load(json) {
   ROWS = d.rows; OPTS = d.opts; TODAY = d.today; PT = d.perusahaan; ME = d.me;
   if (PT.length === 1 && CMP === 'all') CMP = PT[0].kode;
   syncAddBtn();
+  $('#btnFaktur').hidden = !fkBoleh();
   $('#btnOut').textContent = `Keluar (${ME.nama})`;
   $('#btnOut').title = `Masuk sebagai ${ME.nama}, role ${ME.role}`;
   render();
@@ -951,6 +1003,146 @@ async function quickSave(tr, field, val) {
   if (field === 'do') p.tglDo = val ? TODAY : '';
   await persist(p, `${r.nama}: ${val || 'status dikosongkan'}`, tr);
 }
+
+// ===================== CEK FAKTUR (khusus Admin & Owner) =====================
+let FK = { rows: [], hari: '30', hasil: 'perlu', status: 'BARU', id: null };
+const fkBoleh = () => ['ADMIN', 'OWNER'].includes(up(ME.role));
+const FK_TAG = { 'CHECK': 'CHECK', 'CEK BAWAH': 'BAWAH', 'DATA KURANG': 'KURANG', 'OKE': 'OKE', 'CASH': 'CASH' };
+const FK_WARNA = { 'CHECK': 'batal', 'CEK BAWAH': 'belum', 'DATA KURANG': 'tidak', 'OKE': 'spk', 'CASH': 'do' };
+
+function rupiah(n) {
+  if (n === null || n === undefined) return '-';
+  const x = Number(n);
+  if (x >= 1e9) return 'Rp ' + (x / 1e9).toFixed(2).replace('.', ',') + ' M';
+  if (x >= 1e6) return 'Rp ' + (x / 1e6).toFixed(1).replace('.', ',') + ' jt';
+  return 'Rp ' + x.toLocaleString('id-ID');
+}
+function unitPendek(nama) {
+  const t = String(nama || '').trim();
+  if (!t) return '-';
+  const tanpaKode = t.replace(/^[A-Z0-9.\-]+\/\d+\//i, '');
+  const th = tanpaKode.match(/^(.*)\/(19|20)\d{2}\/(.*)$/);
+  return th ? `${th[1].trim()} · ${th[3].trim()}` : tanpaKode;
+}
+function seriPendek(seri) {
+  const b = String(seri || '').split('/');
+  if (b.length < 2) return seri || '';
+  return `NOKA ${b[0].trim()} · NOSIN ${b.slice(1).join('/').trim()}`;
+}
+
+async function muatFaktur() {
+  $('#fkBoard').innerHTML = '<div class="loading">Memuat faktur…</div>';
+  try {
+    let q = SB.from('v_faktur_check').select('*').not('no_seri', 'is', null).order('tanggal', { ascending: false });
+    if (FK.hari !== 'semua') {
+      const d = new Date(); d.setDate(d.getDate() - Number(FK.hari));
+      q = q.gte('tanggal', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d));
+    }
+    FK.rows = cek(await q);
+    renderFaktur();
+  } catch (e) {
+    $('#fkBoard').innerHTML = `<div class="empty">${esc(pesanError(e))}</div>`;
+  }
+}
+
+function renderFaktur() {
+  const perlu = r => ['CHECK', 'CEK BAWAH', 'DATA KURANG'].includes(r.hasil);
+  const list = FK.rows.filter(r =>
+    (FK.hasil === 'semua' || (FK.hasil === 'perlu' ? perlu(r) : r.hasil === FK.hasil)) &&
+    (FK.status === 'semua' || r.status_cek === FK.status));
+
+  const n = h => FK.rows.filter(r => r.hasil === h).length;
+  $('#sum').textContent = `${FK.rows.length} faktur unit — ${n('CHECK')} check, ${n('CEK BAWAH')} di bawah batas, ` +
+                          `${n('DATA KURANG')} data kurang, ${n('OKE')} oke, ${n('CASH')} cash`;
+  $('#title').textContent = 'Cek Faktur Penjualan';
+
+  $('#fkBar').innerHTML = `
+    <select data-fk="hari">${[['7','7 hari'],['30','30 hari'],['90','90 hari'],['semua','Semua']]
+      .map(([v,t]) => `<option value="${v}" ${FK.hari === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <select data-fk="hasil">${[['perlu','Perlu diperiksa'],['CHECK','Bunga di atas batas'],['CEK BAWAH','Bunga di bawah batas'],
+      ['DATA KURANG','Data leasing kurang'],['OKE','Oke'],['CASH','Cash'],['semua','Semua hasil']]
+      .map(([v,t]) => `<option value="${v}" ${FK.hasil === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <select data-fk="status">${[['BARU','Belum diperiksa'],['SELESAI','Sudah diperiksa'],
+      ['DIKEMBALIKAN','Dikembalikan'],['semua','Semua status']]
+      .map(([v,t]) => `<option value="${v}" ${FK.status === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <span class="sub">${list.length} faktur tampil</span>`;
+
+  if (!list.length) { $('#fkBoard').innerHTML = '<div class="empty">Tidak ada faktur pada pilihan ini.</div>'; return; }
+
+  $('#fkBoard').innerHTML = list.map(r => {
+    const batas = (r.batas_min === null || r.batas_min === undefined) ? '' : ` <span class="sub">(batas ${r.batas_min}–${r.batas_max}%)</span>`;
+    const seri = seriPendek(r.no_seri);
+    return `<div class="fk-kartu ${r.status_cek === 'BARU' ? '' : 'selesai'}" style="--c:var(--${FK_WARNA[r.hasil] || 'line'})">
+      <div class="fk-h"><b>${esc(r.id)}</b>
+        <span class="tag ${FK_TAG[r.hasil] || ''}">${esc(r.hasil)}</span>
+        <span class="sub">${fmt(r.tanggal)} · ${esc(r.cabang) || '-'}</span></div>
+      <div class="fk-grid">
+        <div><span>Sales</span> ${esc(r.sales) || '-'}</div>
+        <div><span>Pelanggan</span> ${esc(r.pelanggan) || '-'}</div>
+        <div><span>STNK</span> ${esc(r.nama_stnk) || '-'}</div>
+        <div><span>Unit</span> ${esc(unitPendek(r.barang))}</div>
+        <div><span>Leasing</span> ${esc(r.cara_bayar) || '-'} ${r.tenor ? '· ' + r.tenor + ' bln' : ''}</div>
+        <div><span>OTR leasing</span> ${rupiah(r.otr_leasing)}</div>
+        <div><span>TDP</span> ${rupiah(r.tdp)}</div>
+        <div><span>Angsuran</span> ${rupiah(r.angsuran)}</div>
+        <div><span>Uang muka</span> ${rupiah(r.uang_muka)}</div>
+        <div><span>Nett OTR</span> ${rupiah(r.nett_otr)}</div>
+        <div><span>Asuransi</span> ${esc(r.asuransi) || '-'}</div>
+        <div><span>Bunga</span> <span class="bunga">${r.bunga === null || r.bunga === undefined ? '-' : Number(r.bunga).toFixed(2) + '%'}</span>${batas}</div>
+      </div>
+      ${seri ? `<div class="fk-seri">${esc(seri)}</div>` : ''}
+      ${r.hasil === 'DATA KURANG' && r.leasing_raw ? `<div class="fk-seri">Data leasing di Accurate: ${esc(r.leasing_raw)}</div>` : ''}
+      <div class="fk-akhir">
+        <span class="sub">${r.status_cek === 'BARU' ? 'Belum diperiksa'
+          : `${esc(r.status_cek === 'SELESAI' ? 'Selesai' : 'Dikembalikan')}${r.dicek_pada ? ' · ' + fmtWaktu(r.dicek_pada) : ''}` +
+            (r.catatan ? ' · ' + esc(r.catatan) : '')}</span>
+        <button class="btn btn-line" data-fkid="${esc(r.id)}">${r.status_cek === 'BARU' ? 'Tandai' : 'Ubah tanda'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function gantiTampilan(mode) {
+  const faktur = mode === 'faktur';
+  $('#viewLeads').hidden = faktur;
+  $('#viewFaktur').hidden = !faktur;
+  $('#cmp').hidden = faktur;
+  $('#btnAdd').hidden = faktur || !jenisTambah();
+  $('#btnFaktur').textContent = faktur ? 'Daftar Leads' : 'Cek Faktur';
+  if (faktur) muatFaktur(); else render();
+}
+
+$('#btnFaktur').addEventListener('click', () => gantiTampilan($('#viewFaktur').hidden ? 'faktur' : 'leads'));
+$('#fkBar').addEventListener('change', e => {
+  const k = e.target.dataset.fk; if (!k) return;
+  FK[k] = e.target.value;
+  if (k === 'hari') muatFaktur(); else renderFaktur();
+});
+$('#fkBoard').addEventListener('click', e => {
+  const b = e.target.closest('[data-fkid]'); if (!b) return;
+  const r = FK.rows.find(x => x.id === b.dataset.fkid); if (!r) return;
+  FK.id = r.id;
+  $('#fkErr').classList.remove('show');
+  $('#fkTitle').textContent = 'Tandai ' + r.id;
+  $('#fkInfo').textContent = `${r.hasil} · bunga ${r.bunga === null ? '-' : Number(r.bunga).toFixed(2) + '%'} · ${r.sales || '-'}`;
+  $('#fk_status').value = r.status_cek === 'BARU' ? 'SELESAI' : r.status_cek;
+  $('#fk_catatan').value = r.catatan || '';
+  openOv('#ovFk');
+});
+$('#fkForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const b = $('#fkSimpan'); b.disabled = true;
+  try {
+    const isi = { status_cek: $('#fk_status').value, catatan: $('#fk_catatan').value.trim() || null };
+    const res = await SB.from('faktur_check').update(isi).eq('id', FK.id).select('id');
+    if (!cek(res).length) throw new Error('Tidak tersimpan: akun Anda tidak diizinkan.');
+    closeOv('#ovFk');
+    toast(`${FK.id} ditandai ${isi.status_cek.toLowerCase()}`);
+    await muatFaktur();
+  } catch (ex) {
+    $('#fkErr').textContent = pesanError(ex); $('#fkErr').classList.add('show');
+  } finally { b.disabled = false; }
+});
 
 // ===================== RIWAYAT =====================
 async function openLog(tr) {
