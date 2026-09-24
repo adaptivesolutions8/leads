@@ -182,25 +182,26 @@ thead th.c-lead{left:0;z-index:3}
 .gate .gerr{min-height:20px;margin-top:10px;color:#FFD2CC;font-size:13.5px}
 
 /* ---------- cek faktur ---------- */
-.fk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:14px}
+.fk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:14px;padding-bottom:12px}
 .fk-bar select{height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:0 8px;font-size:13px}
-.fk-kartu{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;
-  box-shadow:inset 3px 0 0 var(--c,var(--line))}
-.fk-kartu.selesai{opacity:.6}
-.fk-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
-.fk-h b{font-size:15px}
-.fk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px 16px;margin-top:8px;font-size:13.5px}
-.fk-grid div span{color:var(--muted)}
-.fk-seri{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--muted);margin-top:4px}
-.fk-akhir{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
-.fk-akhir .sub{margin-right:auto}
-.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px}
+#fkBoard table{min-width:1900px}
+.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.nowrap{white-space:nowrap}
+td.c-fak{position:sticky;left:0;z-index:1;background:var(--card);box-shadow:inset 3px 0 0 var(--c,transparent);font-weight:600;white-space:nowrap}
+thead th.c-fak{left:0;z-index:3}
+tbody tr:hover td.c-fak{background:#FAFBFC}
+tr.sudah{color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .tag.CHECK{background:#FBECEA;color:var(--batal)}
 .tag.BAWAH{background:#FDF3E1;color:#9A6A0F}
 .tag.KURANG{background:#EEF1F5;color:var(--muted)}
 .tag.OKE{background:#E7F3F1;color:var(--spk)}
 .tag.CASH{background:#EDF2FB;color:var(--do)}
 .bunga{font-weight:700}
+.seri{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:nowrap}
+.btn-mini{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:5px;background:#fff;cursor:pointer;font-size:12.5px}
+.btn-mini:hover{background:#F4F5F7}
 
 /* ---------- riwayat ---------- */
 .nm-btn{all:unset;font-weight:600;cursor:pointer;border-radius:3px}
@@ -242,11 +243,8 @@ thead th.c-lead{left:0;z-index:3}
   .ov.full .modal{max-width:none;min-height:100%;border-radius:0}
   .fbar,.fk-bar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .fbar > *,.fk-bar > *{flex:0 0 auto}
-  .fk-grid{grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13px}
-  .fk-grid > div{overflow-wrap:anywhere}
-  .fk-kartu{padding:11px 12px}
-  .fk-h b{font-size:14.5px}
-  .fk-seri{overflow-wrap:anywhere}
+  #fkBoard table{min-width:1700px;font-size:13px}
+  td.c-fak,th.c-fak{min-width:150px}
   .top .btn{padding:0 11px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -1075,37 +1073,42 @@ function renderFaktur() {
 
   if (!list.length) { $('#fkBoard').innerHTML = '<div class="empty">Tidak ada faktur pada pilihan ini.</div>'; return; }
 
-  $('#fkBoard').innerHTML = list.map(r => {
-    const batas = (r.batas_min === null || r.batas_min === undefined) ? '' : ` <span class="sub">(batas ${r.batas_min}–${r.batas_max}%)</span>`;
-    const seri = seriPendek(r.no_seri);
-    return `<div class="fk-kartu ${r.status_cek === 'BARU' ? '' : 'selesai'}" style="--c:var(--${FK_WARNA[r.hasil] || 'line'})">
-      <div class="fk-h"><b>${esc(r.id)}</b>
-        <span class="tag ${FK_TAG[r.hasil] || ''}">${esc(r.hasil)}</span>
-        <span class="sub">${fmt(r.tanggal)} · ${esc(r.cabang) || '-'}</span></div>
-      <div class="fk-grid">
-        <div><span>Sales</span> ${esc(r.sales) || '-'}</div>
-        <div><span>Pelanggan</span> ${esc(r.pelanggan) || '-'}</div>
-        <div><span>STNK</span> ${esc(r.nama_stnk) || '-'}</div>
-        <div><span>Unit</span> ${esc(unitPendek(r.barang))}</div>
-        <div><span>Leasing</span> ${esc(r.cara_bayar) || '-'} ${r.tenor ? '· ' + r.tenor + ' bln' : ''}</div>
-        <div><span>OTR leasing</span> ${rupiah(r.otr_leasing)}</div>
-        <div><span>TDP</span> ${rupiah(r.tdp)}</div>
-        <div><span>Angsuran</span> ${rupiah(r.angsuran)}</div>
-        <div><span>Uang muka</span> ${rupiah(r.uang_muka)}</div>
-        <div><span>Nett OTR</span> ${rupiah(r.nett_otr)}</div>
-        <div><span>Asuransi</span> ${esc(r.asuransi) || '-'}</div>
-        <div><span>Bunga</span> <span class="bunga">${r.bunga === null || r.bunga === undefined ? '-' : Number(r.bunga).toFixed(2) + '%'}</span>${batas}</div>
-      </div>
-      ${seri ? `<div class="fk-seri">${esc(seri)}</div>` : ''}
-      ${r.hasil === 'DATA KURANG' && r.leasing_raw ? `<div class="fk-seri">Data leasing di Accurate: ${esc(r.leasing_raw)}</div>` : ''}
-      <div class="fk-akhir">
-        <span class="sub">${r.status_cek === 'BARU' ? 'Belum diperiksa'
-          : `${esc(r.status_cek === 'SELESAI' ? 'Selesai' : 'Dikembalikan')}${r.dicek_pada ? ' · ' + fmtWaktu(r.dicek_pada) : ''}` +
-            (r.catatan ? ' · ' + esc(r.catatan) : '')}</span>
-        <button class="btn btn-line" data-fkid="${esc(r.id)}">${r.status_cek === 'BARU' ? 'Tandai' : 'Ubah tanda'}</button>
-      </div>
-    </div>`;
-  }).join('');
+  const rp = n => n === null || n === undefined ? '-' : Number(n).toLocaleString('id-ID');
+  const baris = (r, i) => `<tr class="${r.status_cek === 'BARU' ? '' : 'sudah'}">
+    <td class="c-no">${i + 1}</td>
+    <td class="c-fak nowrap" style="--c:var(--${FK_WARNA[r.hasil] || 'line'})">${esc(r.id)}</td>
+    <td class="nowrap">${fmt(r.tanggal)}</td>
+    <td class="nowrap">${esc(r.cabang) || '-'}</td>
+    <td>${esc(r.sales) || '-'}</td>
+    <td>${esc(r.pelanggan) || '-'}</td>
+    <td>${esc(r.nama_stnk) || '-'}</td>
+    <td class="nowrap">${esc(r.cara_bayar) || '-'}</td>
+    <td>${esc(unitPendek(r.barang))}</td>
+    <td class="seri">${esc(seriPendek(r.no_seri))}</td>
+    <td class="num">${rp(r.nett_otr)}</td>
+    <td class="num">${rp(r.otr_leasing)}</td>
+    <td class="num">${rp(r.tdp)}</td>
+    <td class="num">${rp(r.uang_muka)}</td>
+    <td class="num">${rp(r.angsuran)}</td>
+    <td class="num">${r.tenor || '-'}</td>
+    <td class="num bunga">${r.bunga === null || r.bunga === undefined ? '-' : Number(r.bunga).toFixed(2) + '%'}</td>
+    <td class="num sub">${r.batas_min === null || r.batas_min === undefined ? '-' : r.batas_min + '–' + r.batas_max + '%'}</td>
+    <td><span class="tag ${FK_TAG[r.hasil] || ''}">${esc(r.hasil)}</span></td>
+    <td>${esc(r.asuransi) || '-'}</td>
+    <td class="nowrap">${r.status_cek === 'BARU' ? '<span class="sub">Belum</span>'
+      : `${r.status_cek === 'SELESAI' ? 'Selesai' : 'Dikembalikan'}${r.catatan ? '<div class="sub">' + esc(r.catatan) + '</div>' : ''}`}</td>
+    <td><button class="btn-mini" data-fkid="${esc(r.id)}">${r.status_cek === 'BARU' ? 'Tandai' : 'Ubah'}</button></td>
+  </tr>`;
+
+  $('#fkBoard').innerHTML = `<div class="board"><table>
+    <thead><tr>
+      <th class="c-no">No</th><th class="c-fak">Nomor #</th><th>Tanggal</th><th>Cabang</th><th>Sales</th>
+      <th>Pelanggan</th><th>Nama STNK/BPKB</th><th>Cash / Kredit</th><th>Nama Barang</th><th>No Seri/Produksi</th>
+      <th class="num">NETT OTR</th><th class="num">OTR Leasing</th><th class="num">TDP</th><th class="num">Uang Muka</th>
+      <th class="num">Angsuran</th><th class="num">Tenor</th><th class="num">Bunga</th><th class="num">Batas</th>
+      <th>Hasil</th><th>Insurance</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody>${list.map(baris).join('')}</tbody></table></div>`;
 }
 
 function gantiTampilan(mode) {
