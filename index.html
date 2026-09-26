@@ -1090,10 +1090,12 @@ function renderFaktur() {
     <td class="num">${rp(r.tdp)}</td>
     <td class="num">${rp(r.uang_muka)}</td>
     <td class="num">${rp(r.angsuran)}</td>
+    <td class="num">${rp(r.dp_setor)}</td>
     <td class="num">${r.tenor || '-'}</td>
     <td class="num bunga">${r.bunga === null || r.bunga === undefined ? '-' : Number(r.bunga).toFixed(2) + '%'}</td>
     <td class="num sub">${r.batas_min === null || r.batas_min === undefined ? '-' : r.batas_min + '–' + r.batas_max + '%'}</td>
     <td><span class="tag ${FK_TAG[r.hasil] || ''}">${esc(r.hasil)}</span></td>
+    <td>${esc(r.keterangan_acc) || '-'}</td>
     <td>${esc(r.asuransi) || '-'}</td>
     <td class="nowrap">${r.status_cek === 'BARU' ? '<span class="sub">Belum</span>'
       : `${r.status_cek === 'SELESAI' ? 'Selesai' : 'Dikembalikan'}${r.catatan ? '<div class="sub">' + esc(r.catatan) + '</div>' : ''}`}</td>
@@ -1105,8 +1107,8 @@ function renderFaktur() {
       <th class="c-no">No</th><th class="c-fak">Nomor #</th><th>Tanggal</th><th>Cabang</th><th>Sales</th>
       <th>Pelanggan</th><th>Nama STNK/BPKB</th><th>Cash / Kredit</th><th>Nama Barang</th><th>No Seri/Produksi</th>
       <th class="num">NETT OTR</th><th class="num">OTR Leasing</th><th class="num">TDP</th><th class="num">Uang Muka</th>
-      <th class="num">Angsuran</th><th class="num">Tenor</th><th class="num">Bunga</th><th class="num">Batas</th>
-      <th>Hasil</th><th>Insurance</th><th>Status</th><th></th>
+      <th class="num">Angsuran</th><th class="num">DP Setor</th><th class="num">Tenor</th><th class="num">Bunga</th><th class="num">Batas</th>
+      <th>Hasil</th><th>Keterangan</th><th>Insurance</th><th>Status</th><th></th>
     </tr></thead>
     <tbody>${list.map(baris).join('')}</tbody></table></div>`;
 }
