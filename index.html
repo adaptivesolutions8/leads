@@ -1333,7 +1333,9 @@ function openPas(id) {
 
   // nama sales: sales → namanya sendiri (terkunci); lainnya → pilih
   const isSales = ME.role === 'SALES';
-  const daftar = uq(ME.sales.concat(ROWS.filter(x => x.pt === 'PAS').map(x => x.spv))).sort();
+  // hanya sales aktif di tabel profil; nama lama di data lead tidak ikut jadi opsi.
+  // isiSelect() tetap menambahkan nama pemilik lead lama saat lead itu dibuka untuk diedit.
+  const daftar = uq(ME.sales).sort();
   if (isSales) { P('sales').innerHTML = `<option>${esc(ME.nama)}</option>`; P('sales').disabled = true; }
   else { isiSelect(P('sales'), daftar, 'Pilih sales', r.spv || ''); P('sales').disabled = false; }
 
